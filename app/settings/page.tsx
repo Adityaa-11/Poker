@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,11 +36,19 @@ import { useAuth } from "@/contexts/auth-context"
 import { usePoker } from "@/contexts/poker-context"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { isDemoMode } from "@/lib/demo-data"
+import { supabase } from "@/lib/supabase/client"
 
 export default function SettingsPage() {
-  const { user: authUser, signOut } = useAuth()
+  const { user: authUser, signOut, refreshUser } = useAuth()
   const { currentUser, clearAllData } = usePoker()
   const [activeTab, setActiveTab] = useState("profile")
+  const [displayName, setDisplayName] = useState("")
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileError, setProfileError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setDisplayName(currentUser?.name || authUser?.name || "")
+  }, [authUser?.name, currentUser?.name])
 
   const handleSignOut = async () => {
     if (confirm("Are you sure you want to sign out?")) {
@@ -62,6 +70,48 @@ export default function SettingsPage() {
   const handleImportData = () => {
     // TODO: Implement data import
     alert("Data import feature coming soon!")
+  }
+
+  const handleSaveProfile = async () => {
+    if (isDemoMode()) return
+    setProfileError(null)
+
+    const nextName = displayName.trim()
+    if (nextName.length < 2) {
+      setProfileError("Display name must be at least 2 characters.")
+      return
+    }
+
+    try {
+      setSavingProfile(true)
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) {
+        setProfileError("Not authenticated. Please sign out and sign back in.")
+        return
+      }
+
+      const res = await fetch("/api/users", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: nextName }),
+      })
+
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: string } | null
+        setProfileError(json?.error || "Failed to save changes.")
+        return
+      }
+
+      await refreshUser()
+    } catch {
+      setProfileError("Failed to save changes.")
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   return (
@@ -130,7 +180,8 @@ export default function SettingsPage() {
                   <Input 
                     id="name" 
                     placeholder="Enter your name"
-                    defaultValue={currentUser?.name || authUser?.name || ""}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
                     disabled={isDemoMode()}
                   />
                 </div>
@@ -144,8 +195,15 @@ export default function SettingsPage() {
                     disabled={isDemoMode()}
                   />
                 </div>
-                <Button disabled={isDemoMode()}>
-                  {isDemoMode() ? "Demo Mode - Changes Disabled" : "Save Changes"}
+                {profileError && (
+                  <p className="text-sm text-destructive">{profileError}</p>
+                )}
+                <Button disabled={isDemoMode() || savingProfile} onClick={handleSaveProfile}>
+                  {isDemoMode()
+                    ? "Demo Mode - Changes Disabled"
+                    : savingProfile
+                      ? "Saving..."
+                      : "Save Changes"}
                 </Button>
               </div>
 

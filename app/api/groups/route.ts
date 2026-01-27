@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseServerAnon } from '@/lib/supabase/server'
-import { createGroup, getGroups, addMemberToGroup } from '@/lib/supabase/database'
+import { supabaseServer, supabaseServerAnon } from '@/lib/supabase/server'
 
 // Get user's groups
 export async function GET(request: NextRequest) {
@@ -19,10 +18,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    // Get user's groups
-    const groups = await getGroups()
-    
-    return NextResponse.json({ groups })
+    // Two-step query (reliable across clients)
+    const { data: memberships, error: mErr } = await supabaseServer
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id)
+
+    if (mErr || !memberships) return NextResponse.json({ groups: [] })
+
+    const groupIds = memberships.map(m => (m as any).group_id)
+    if (groupIds.length === 0) return NextResponse.json({ groups: [] })
+
+    const { data: groups2, error: g2Err } = await supabaseServer
+      .from('groups')
+      .select('id, name, invite_code, created_at')
+      .in('id', groupIds)
+
+    if (g2Err || !groups2) return NextResponse.json({ groups: [] })
+
+    const groupMembers = await Promise.all(
+      groups2.map(async g => {
+        const { data: members } = await supabaseServer
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', (g as any).id)
+        return {
+          id: (g as any).id,
+          name: (g as any).name,
+          inviteCode: (g as any).invite_code,
+          members: (members || []).map(m => (m as any).user_id),
+          createdAt: (g as any).created_at,
+        }
+      })
+    )
+
+    return NextResponse.json({ groups: groupMembers })
   } catch (error) {
     console.error('API Error:', error)
     return NextResponse.json(
@@ -68,14 +98,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create group
-    const group = await createGroup(name.trim())
+    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase()
 
-    if (!group) {
+    // Create group with service role (bypasses RLS, but user is verified above)
+    const { data: created, error: createError } = await supabaseServer
+      .from('groups')
+      .insert({
+        name: name.trim(),
+        invite_code: inviteCode,
+        created_by: user.id,
+      })
+      .select()
+      .single()
+
+    if (createError || !created) {
       return NextResponse.json(
         { error: 'Failed to create group' }, 
         { status: 500 }
       )
+    }
+
+    // Add creator as member
+    await supabaseServer
+      .from('group_members')
+      .upsert({ group_id: created.id, user_id: user.id }, { onConflict: 'group_id,user_id' })
+
+    const group = {
+      id: created.id,
+      name: created.name,
+      inviteCode: created.invite_code,
+      members: [user.id],
+      createdAt: created.created_at,
     }
 
     return NextResponse.json({ group }, { status: 201 })

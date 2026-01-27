@@ -24,6 +24,8 @@ interface CreateGroupDialogProps {
 
 export function CreateGroupDialog({ children }: CreateGroupDialogProps) {
   const [open, setOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     description: ""
@@ -35,16 +37,28 @@ export function CreateGroupDialog({ children }: CreateGroupDialogProps) {
   const handleSubmit = async () => {
     if (!formData.name.trim()) return
 
-    const group = await createNewGroup(formData.name.trim(), formData.description.trim())
-    if (!group) return
+    try {
+      setSubmitting(true)
+      setError(null)
+      const group = await createNewGroup(formData.name.trim(), formData.description.trim())
+      if (!group) {
+        setError("Couldn’t create the group. Please try again.")
+        return
+      }
 
-    setFormData({ name: "", description: "" })
-    setOpen(false)
-    router.push(`/groups/${group.id}`)
+      setFormData({ name: "", description: "" })
+      setOpen(false)
+      router.push(`/groups/${group.id}`)
+    } catch {
+      setError("Couldn’t create the group. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleClose = () => {
     setFormData({ name: "", description: "" })
+    setError(null)
     setOpen(false)
   }
 
@@ -84,13 +98,14 @@ export function CreateGroupDialog({ children }: CreateGroupDialogProps) {
               onChange={(e) => setFormData({...formData, description: e.target.value})}
             />
           </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!formData.name.trim()}>
-            Create Group
+          <Button onClick={handleSubmit} disabled={!formData.name.trim() || submitting}>
+            {submitting ? "Creating..." : "Create Group"}
           </Button>
         </DialogFooter>
       </DialogContent>

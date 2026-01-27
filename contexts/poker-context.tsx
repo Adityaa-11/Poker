@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { isDemoMode } from '@/lib/demo-data'
 import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase/client'
 import { 
   Player, 
   Game, 
@@ -94,10 +95,24 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
       return
     }
 
-    const [loadedPlayers, loadedGroups, loadedGames, loadedSettlements, loadedPayments] =
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+
+    const loadedGroups = token
+      ? await (async () => {
+          const res = await fetch('/api/groups', {
+            headers: { authorization: `Bearer ${token}` },
+          })
+          if (!res.ok) return [] as Group[]
+          const json = (await res.json()) as { groups?: Group[] }
+          return json.groups || []
+        })()
+      : await Supa.getGroups()
+
+    const [loadedPlayers, loadedGroupsFromApi, loadedGames, loadedSettlements, loadedPayments] =
       await Promise.all([
         Supa.getPlayers(),
-        Supa.getGroups(),
+        Promise.resolve(loadedGroups),
         Supa.getGames(),
         Supa.getSettlements(),
         Supa.getPlayerPayments(),
@@ -105,7 +120,7 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
 
     setCurrentUser(authUser)
     setPlayers(loadedPlayers)
-    setGroups(loadedGroups)
+    setGroups(loadedGroupsFromApi)
     setGames(loadedGames)
     setSettlements(loadedSettlements)
     setPayments(loadedPayments)
@@ -186,10 +201,23 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
       return group
     }
 
-    // Description isn't persisted in the current Supabase schema yet.
-    const group = await Supa.createGroup(name)
+    const { data: sessionData } = await supabase.auth.getSession()
+    const token = sessionData.session?.access_token
+    if (!token) return null
+
+    const res = await fetch('/api/groups', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name, description }),
+    })
+
+    if (!res.ok) return null
+    const json = (await res.json()) as { group?: Group }
     refreshData()
-    return group
+    return json.group ?? null
   }
 
   const createNewGame = (

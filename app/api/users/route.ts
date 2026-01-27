@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const initials = trimmedName
       .split(' ')
       .filter(Boolean)
-      .map(n => n[0])
+      .map((n: string) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 3)
@@ -171,11 +171,22 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Update user profile
-    const { error: updateError } = await supabaseServerAnon
+    const trimmedName = name.trim()
+    const initials = trimmedName
+      .split(' ')
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 3)
+
+    // Update user profile using service role (bypasses RLS, but user is still verified above)
+    const { data: updated, error: updateError } = await supabaseServer
       .from('users')
-      .update({ name: name.trim() })
+      .update({ name: trimmedName, initials })
       .eq('id', user.id)
+      .select()
+      .single()
 
     if (updateError) {
       return NextResponse.json(
@@ -184,7 +195,15 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ message: 'Profile updated successfully' })
+    return NextResponse.json({
+      message: 'Profile updated successfully',
+      player: {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email || undefined,
+        initials: updated.initials,
+      },
+    })
   } catch (error) {
     console.error('API Error:', error)
     return NextResponse.json(
