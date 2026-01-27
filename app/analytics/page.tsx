@@ -78,7 +78,7 @@ export default function ProfilePage() {
     )
 
     return filteredGames
-  }, [games, authUser?.id, selectedGroups, timeFilter])
+  }, [games, authUser, selectedGroups, timeFilter])
 
   // Calculate analytics
   const analytics = useMemo(() => {
@@ -206,7 +206,7 @@ export default function ProfilePage() {
       chartData,
       heatmapData
     }
-  }, [filteredData, authUser?.id, timeFilter])
+  }, [filteredData, authUser, timeFilter])
 
   // Show loading spinner while checking auth
   if (loading) {

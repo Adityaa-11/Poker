@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -115,9 +116,12 @@ export function GamePhotos({ gameId, photos = [], onPhotosChange }: GamePhotosPr
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {photos.map((photo, index) => (
               <div key={index} className="relative group">
-                <img
+                <Image
                   src={photo}
                   alt={`Game photo ${index + 1}`}
+                  width={400}
+                  height={200}
+                  unoptimized
                   className="w-full h-24 object-cover rounded-lg"
                 />
                 <Button

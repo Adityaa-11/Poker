@@ -13,13 +13,6 @@ const nextConfig = {
   experimental: {
     // Enable optimizeCss for production builds
     optimizeCss: true,
-    // Enable turbo for faster builds
-    turbo: {
-      rules: {
-        // Optimize CSS imports
-        '*.css': ['css-loader', 'postcss-loader'],
-      },
-    },
   },
 
   // Image optimization
@@ -30,6 +23,13 @@ const nextConfig = {
     minimumCacheTTL: 31536000, // 1 year
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'api.qrserver.com',
+        pathname: '/v1/**',
+      },
+    ],
   },
 
   // PWA and caching optimizations

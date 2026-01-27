@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -163,11 +164,12 @@ export function InviteLinkCard({ group }: InviteLinkCardProps) {
               <p className="text-xs text-gray-600 dark:text-gray-700">Point your camera at this QR code</p>
             </div>
             <div className="flex justify-center">
-              <img
+              <Image
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inviteUrl)}&bgcolor=FFFFFF&color=000000&margin=10`}
                 alt={`QR Code for ${group.name}`}
+                width={192}
+                height={192}
                 className="w-48 h-48 border border-gray-200 rounded"
-                loading="lazy"
               />
             </div>
             <div className="mt-3 text-xs text-gray-600 dark:text-gray-700">
