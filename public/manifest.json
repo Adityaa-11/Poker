@@ -1,0 +1,52 @@
+{
+  "name": "PokerPals - Poker Game Tracker",
+  "short_name": "PokerPals",
+  "description": "Track your poker games, manage groups, and settle up with friends",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/placeholder-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/placeholder-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["games", "lifestyle", "social"],
+  "lang": "en",
+  "shortcuts": [
+    {
+      "name": "New Game",
+      "short_name": "New Game",
+      "description": "Start a new poker game",
+      "url": "/?action=new-game"
+    },
+    {
+      "name": "Groups",
+      "short_name": "Groups",
+      "description": "View your poker groups",
+      "url": "/groups"
+    },
+    {
+      "name": "Ledger",
+      "short_name": "Ledger",
+      "description": "Track balances and payments",
+      "url": "/ledger"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "edge_side_panel": {
+    "preferred_width": 480
+  }
+} 
