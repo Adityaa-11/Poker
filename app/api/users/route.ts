@@ -4,6 +4,11 @@ import { supabaseServer, supabaseServerAnon } from '@/lib/supabase/server'
 // Get all users (with proper authentication)
 export async function GET(request: NextRequest) {
   try {
+    // Check that service role is available
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     // Check authentication
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -46,6 +51,11 @@ export async function GET(request: NextRequest) {
 // Create new user
 export async function POST(request: NextRequest) {
   try {
+    // Check that service role is available
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     // Check authentication
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -138,6 +148,11 @@ export async function POST(request: NextRequest) {
 // Update user profile
 export async function PUT(request: NextRequest) {
   try {
+    // Check that service role is available
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     // Check authentication
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {

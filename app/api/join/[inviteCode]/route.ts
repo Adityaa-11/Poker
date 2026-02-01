@@ -5,6 +5,11 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ inviteCode: string }> }
 ) {
+  // Check that service role is available
+  if (!supabaseServer) {
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
   const { inviteCode } = await params
 
   const { data: group, error } = await supabaseServer
@@ -36,6 +41,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ inviteCode: string }> }
 ) {
+  // Check that service role is available
+  if (!supabaseServer) {
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
   const { inviteCode } = await params
 
   const authHeader = request.headers.get('authorization')

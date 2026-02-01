@@ -48,7 +48,9 @@ export async function signInWithGoogle(): Promise<{ success: boolean; error?: st
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
           access_type: 'offline',
-          prompt: 'consent',
+          // Removed 'prompt: consent' - it forces re-consent every time
+          // which can cause issues with session handling and token refresh
+          prompt: 'select_account',
         },
       },
     })
@@ -153,9 +155,11 @@ export async function signInWithEmail(data: SignInData): Promise<{ success: bool
 }
 
 // Sign out
+// IMPORTANT: Using scope: 'local' to only sign out this browser/device
+// scope: 'global' would sign out ALL sessions across all devices
 export async function signOut(): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
 
     if (error) {
       return { success: false, error: error.message }

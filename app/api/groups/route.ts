@@ -4,6 +4,11 @@ import { supabaseServer, supabaseServerAnon } from '@/lib/supabase/server'
 // Get user's groups
 export async function GET(request: NextRequest) {
   try {
+    // Check that service role is available
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     // Check authentication
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -38,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const groupMembers = await Promise.all(
       groups2.map(async g => {
-        const { data: members } = await supabaseServer
+        const { data: members } = await supabaseServer!
           .from('group_members')
           .select('user_id')
           .eq('group_id', (g as any).id)
@@ -65,6 +70,11 @@ export async function GET(request: NextRequest) {
 // Create new group
 export async function POST(request: NextRequest) {
   try {
+    // Check that service role is available
+    if (!supabaseServer) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     // Check authentication
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
