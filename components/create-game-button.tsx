@@ -25,36 +25,57 @@ export function CreateGameButton() {
     groupId: "",
     defaultBuyIn: "200"
   })
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   
-  const { groups, players, currentUser, createNewGame } = usePoker()
+  const { groups, currentUser, createNewGame } = usePoker()
   const router = useRouter()
+
+  const resetForm = () => {
+    setFormData({ groupId: "", defaultBuyIn: "200" })
+    setError(null)
+    setSubmitting(false)
+  }
   
   const handleSubmit = async () => {
-    console.log('🎮 CreateGameButton: handleSubmit called');
-    console.log('🎮 Form data:', formData);
-    console.log('🎮 Current user:', currentUser);
-    console.log('🎮 Groups:', groups);
-    
-    if (formData.groupId && formData.defaultBuyIn) {
-      try {
-        const game = await createNewGame(
-          formData.groupId,
-          "$1/$2 NLHE", // Use proper stakes format
-          parseInt(formData.defaultBuyIn),
-          currentUser?.id || "" // Game creator as default bank person
-        )
-        if (!game) return
-        console.log('🎮 Game created successfully:', game);
-        setOpen(false)
-        router.push(`/games/${game.id}`)
-      } catch (error) {
-        console.error('🎮 Error creating game:', error);
+    setError(null)
+
+    if (!formData.groupId) {
+      setError("Please select a poker group.")
+      return
+    }
+
+    const buyIn = parseInt(formData.defaultBuyIn)
+    if (!formData.defaultBuyIn || isNaN(buyIn) || buyIn < 1) {
+      setError("Buy-in must be at least $1.")
+      return
+    }
+
+    if (!currentUser?.id) {
+      setError("You must be signed in to create a game.")
+      return
+    }
+
+    try {
+      setSubmitting(true)
+      const game = await createNewGame(
+        formData.groupId,
+        "$1/$2 NLHE",
+        buyIn,
+        currentUser.id
+      )
+      if (!game) {
+        setError("Failed to create game. Please try again.")
+        setSubmitting(false)
+        return
       }
-    } else {
-      console.log('🎮 Form validation failed:', { 
-        hasGroupId: !!formData.groupId, 
-        hasBuyIn: !!formData.defaultBuyIn 
-      });
+      setOpen(false)
+      resetForm()
+      router.push(`/games/${game.id}`)
+    } catch (err) {
+      console.error('Error creating game:', err)
+      setError("Something went wrong. Please try again.")
+      setSubmitting(false)
     }
   }
 
@@ -68,7 +89,7 @@ export function CreateGameButton() {
         <CardDescription>Track a new poker session</CardDescription>
       </CardHeader>
       <CardContent>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="w-full h-12 bg-primary hover:bg-primary/90 shadow-md hover:shadow-lg transition-all duration-200">
               <Plus className="mr-2 h-5 w-5" />
@@ -83,7 +104,7 @@ export function CreateGameButton() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="group">Poker Group</Label>
-                <Select value={formData.groupId} onValueChange={(value) => setFormData({...formData, groupId: value})}>
+                <Select value={formData.groupId} onValueChange={(value) => { setFormData({...formData, groupId: value}); setError(null); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select group" />
                   </SelectTrigger>
@@ -99,18 +120,22 @@ export function CreateGameButton() {
                 <Input 
                   id="default-buy-in" 
                   placeholder="200" 
-                  type="number" 
+                  type="number"
+                  min={1}
                   value={formData.defaultBuyIn}
-                  onChange={(e) => setFormData({...formData, defaultBuyIn: e.target.value})}
+                  onChange={(e) => { setFormData({...formData, defaultBuyIn: e.target.value}); setError(null); }}
                 />
               </div>
               <div className="text-sm text-muted-foreground">
                 Players will opt-in to the game with their own buy-in amounts and manually enter their final cash-out when the game ends.
               </div>
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
             </div>
             <DialogFooter>
-              <Button type="submit" onClick={handleSubmit}>
-                Create Game
+              <Button type="submit" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? "Creating..." : "Create Game"}
               </Button>
             </DialogFooter>
           </DialogContent>

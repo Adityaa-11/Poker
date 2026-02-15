@@ -71,8 +71,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json()
-    const { name, email } = body as { name?: string; email?: string }
+    let body: { name?: string; email?: string }
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
+    const { name, email } = body
 
     // Validate input
     if (!name) {
@@ -168,7 +173,12 @@ export async function PUT(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json()
+    let body: { name?: string }
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
     const { name } = body
 
     // Validate input

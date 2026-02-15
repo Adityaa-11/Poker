@@ -11,8 +11,10 @@ const STATIC_CACHE_URLS = [
   '/settings',
   '/offline',
   '/manifest.json',
-  // App icons / placeholders
-  '/placeholder-logo.png',
+  // App icons
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png',
+  '/icons/apple-touch-icon.png',
 ]
 
 // Dynamic content that should be cached

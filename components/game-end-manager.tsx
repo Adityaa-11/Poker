@@ -36,8 +36,9 @@ export function GameEndManager({ game, onGameCompleted }: GameEndManagerProps) {
   }
 
   const calculateTotals = () => {
-    const totalBuyIn = game.players.reduce((sum, gp) => sum + gp.buyIn, 0)
-    const totalCashOut = Object.entries(cashOuts).reduce((sum, [playerId, cashOut]) => {
+    // Total money in = initial buy-in + all rebuys
+    const totalBuyIn = game.players.reduce((sum, gp) => sum + gp.buyIn + (gp.rebuyAmount || 0), 0)
+    const totalCashOut = Object.entries(cashOuts).reduce((sum, [, cashOut]) => {
       const amount = parseFloat(cashOut) || 0
       return sum + amount
     }, 0)
@@ -64,14 +65,14 @@ export function GameEndManager({ game, onGameCompleted }: GameEndManagerProps) {
 
     setIsCompleting(true)
     try {
-      // Update all player cash-outs
+      // Update all player cash-outs — await each so they're committed before completing
       for (const gamePlayer of game.players) {
         const cashOut = parseFloat(cashOuts[gamePlayer.playerId]) || 0
-        updatePlayerInGame(game.id, gamePlayer.playerId, { cashOut })
+        await updatePlayerInGame(game.id, gamePlayer.playerId, { cashOut })
       }
 
-      // Complete the game
-      completeGame(game.id)
+      // Now complete the game (generates settlements from committed cash-outs)
+      await completeGame(game.id)
       onGameCompleted()
     } catch (error) {
       console.error('Failed to complete game:', error)
@@ -102,7 +103,7 @@ export function GameEndManager({ game, onGameCompleted }: GameEndManagerProps) {
               <div className="flex-1">
                 <p className="font-medium">{player!.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  Buy-in: ${gamePlayer.buyIn}
+                  Buy-in: ${gamePlayer.buyIn}{gamePlayer.rebuyAmount ? ` + $${gamePlayer.rebuyAmount} rebuy` : ''}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -114,6 +115,7 @@ export function GameEndManager({ game, onGameCompleted }: GameEndManagerProps) {
                   <Input
                     id={`cashout-${player!.id}`}
                     type="number"
+                    min={0}
                     step="0.01"
                     placeholder="0.00"
                     value={cashOuts[player!.id] || ''}
@@ -121,19 +123,22 @@ export function GameEndManager({ game, onGameCompleted }: GameEndManagerProps) {
                     className="pl-10"
                   />
                 </div>
-                {cashOuts[player!.id] && (
-                  <Badge 
-                    variant="outline" 
-                    className={
-                      (parseFloat(cashOuts[player!.id]) - gamePlayer.buyIn) >= 0 
-                        ? "bg-green-100 text-green-700" 
-                        : "bg-red-100 text-red-700"
-                    }
-                  >
-                    {(parseFloat(cashOuts[player!.id]) - gamePlayer.buyIn) >= 0 ? '+' : ''}
-                    ${(parseFloat(cashOuts[player!.id]) - gamePlayer.buyIn).toFixed(2)}
-                  </Badge>
-                )}
+                {cashOuts[player!.id] && (() => {
+                  const totalIn = gamePlayer.buyIn + (gamePlayer.rebuyAmount || 0)
+                  const diff = parseFloat(cashOuts[player!.id]) - totalIn
+                  return (
+                    <Badge 
+                      variant="outline" 
+                      className={
+                        diff >= 0 
+                          ? "bg-green-100 text-green-700" 
+                          : "bg-red-100 text-red-700"
+                      }
+                    >
+                      {diff >= 0 ? '+' : ''}${diff.toFixed(2)}
+                    </Badge>
+                  )
+                })()}
               </div>
             </div>
           ))}

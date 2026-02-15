@@ -40,7 +40,7 @@ export function GameOptInManager({ game }: GameOptInManagerProps) {
     
     setIsJoining(true)
     try {
-      const success = addPlayerToGame(game.id, currentUser.id, parseInt(buyIn))
+      const success = await addPlayerToGame(game.id, currentUser.id, parseInt(buyIn))
       if (success) {
         setBuyIn(game.defaultBuyIn.toString())
       }

@@ -19,8 +19,6 @@ import {
   Database, 
   HelpCircle, 
   LogOut,
-  Download,
-  Upload,
   Trash2,
   Moon,
   Sun,
@@ -62,15 +60,6 @@ export default function SettingsPage() {
     }
   }
 
-  const handleExportData = () => {
-    // TODO: Implement data export
-    alert("Data export feature coming soon!")
-  }
-
-  const handleImportData = () => {
-    // TODO: Implement data import
-    alert("Data import feature coming soon!")
-  }
 
   const handleSaveProfile = async () => {
     if (isDemoMode()) return
@@ -366,33 +355,10 @@ export default function SettingsPage() {
                 Data Management
               </CardTitle>
               <CardDescription>
-                Import, export, and manage your poker data
+                Manage your poker data
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid gap-4">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={handleExportData}
-                  disabled={isDemoMode()}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export All Data
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={handleImportData}
-                  disabled={isDemoMode()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import Data
-                </Button>
-              </div>
-
-              <Separator />
 
               <div className="space-y-4">
                 <h4 className="text-sm font-medium text-destructive">Danger Zone</h4>

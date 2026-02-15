@@ -5,8 +5,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { usePoker } from "@/contexts/poker-context"
 import { useAuth } from "@/contexts/auth-context"
 import { isDemoMode, debugDemoData, loadDemoData } from "@/lib/demo-data"
+import Link from "next/link"
 
 export default function DebugPage() {
+  // Block access in production
+  if (process.env.NODE_ENV === 'production') {
+    return (
+      <div className="container mx-auto flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
+        <h1 className="text-2xl font-bold">Page not available</h1>
+        <p className="mt-2 text-muted-foreground">This page is only available in development mode.</p>
+        <Link href="/">
+          <Button className="mt-6">Back to Home</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  return <DebugContent />
+}
+
+function DebugContent() {
   const { currentUser, players, games, groups, settlements } = usePoker()
   const { user: authUser } = useAuth()
 
@@ -39,7 +57,7 @@ export default function DebugPage() {
               <p><strong>Is Demo Mode:</strong> {isDemoMode() ? 'Yes' : 'No'}</p>
               <p><strong>Auth User:</strong> {authUser ? `${authUser.name} (${authUser.id})` : 'None'}</p>
               <p><strong>Current User:</strong> {currentUser ? `${currentUser.name} (${currentUser.id})` : 'None'}</p>
-              <p><strong>LocalStorage Current User:</strong> {localStorage.getItem('poker_current_user') || 'None'}</p>
+              <p><strong>LocalStorage Current User:</strong> {typeof window !== 'undefined' ? localStorage.getItem('poker_current_user') || 'None' : 'N/A'}</p>
             </div>
           </CardContent>
         </Card>

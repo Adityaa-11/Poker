@@ -27,18 +27,18 @@ interface PokerContextType {
   createNewPlayer: (name: string, email?: string) => Player;
   createNewGroup: (name: string, description?: string) => Promise<Group | null>;
   createNewGame: (groupId: string, stakes: string, defaultBuyIn: number, bankPersonId: string) => Promise<Game | null>;
-  addPlayerToGame: (gameId: string, playerId: string, buyIn?: number) => boolean;
-  updatePlayerInGame: (gameId: string, playerId: string, updates: { buyIn?: number; cashOut?: number }) => boolean;
-  removePlayerFromGame: (gameId: string, playerId: string) => boolean;
-  completeGame: (gameId: string) => boolean;
-  markSettlementPaid: (settlementId: string) => boolean;
-  toggleSettlementPayment: (settlementId: string) => boolean;
-  togglePlayerPayment: (gameId: string, playerId: string) => boolean;
+  addPlayerToGame: (gameId: string, playerId: string, buyIn?: number) => Promise<boolean>;
+  updatePlayerInGame: (gameId: string, playerId: string, updates: { buyIn?: number; cashOut?: number }) => Promise<boolean>;
+  removePlayerFromGame: (gameId: string, playerId: string) => Promise<boolean>;
+  completeGame: (gameId: string) => Promise<boolean>;
+  markSettlementPaid: (settlementId: string) => Promise<boolean>;
+  toggleSettlementPayment: (settlementId: string) => Promise<boolean>;
+  togglePlayerPayment: (gameId: string, playerId: string) => Promise<boolean>;
   getPlayerPaymentStatus: (gameId: string, playerId: string) => boolean;
-  optInToGame: (gameId: string, playerId: string, buyIn: number) => boolean;
-  addRebuyToGame: (gameId: string, playerId: string, rebuyAmount: number) => boolean;
-  cashOutFromGame: (gameId: string, playerId: string, cashOutAmount: number) => boolean;
-  addMemberToGroup: (groupId: string, playerId: string) => boolean;
+  optInToGame: (gameId: string, playerId: string, buyIn: number) => Promise<boolean>;
+  addRebuyToGame: (gameId: string, playerId: string, rebuyAmount: number) => Promise<boolean>;
+  cashOutFromGame: (gameId: string, playerId: string, cashOutAmount: number) => Promise<boolean>;
+  addMemberToGroup: (groupId: string, playerId: string) => Promise<boolean>;
   
   // Computed data
   getPlayerBalance: (playerId: string) => PlayerBalance;
@@ -239,162 +239,140 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
     })()
   }
 
-  const handleAddPlayerToGame = (gameId: string, playerId: string, buyIn?: number): boolean => {
+  const handleAddPlayerToGame = async (gameId: string, playerId: string, buyIn?: number): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.addPlayerToGame(gameId, playerId, buyIn);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.addPlayerToGame(gameId, playerId, buyIn ?? 0)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.addPlayerToGame(gameId, playerId, buyIn ?? 0)
+    refreshData()
+    return result
   };
 
-  const handleUpdatePlayerInGame = (
+  const handleUpdatePlayerInGame = async (
     gameId: string, 
     playerId: string, 
     updates: { buyIn?: number; cashOut?: number }
-  ): boolean => {
+  ): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.updatePlayerInGame(gameId, playerId, updates);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.updatePlayerInGame(gameId, playerId, updates)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.updatePlayerInGame(gameId, playerId, updates)
+    refreshData()
+    return result
   };
 
-  const handleCompleteGame = (gameId: string): boolean => {
+  const handleCompleteGame = async (gameId: string): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.completeGame(gameId);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.completeGame(gameId)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.completeGame(gameId)
+    refreshData()
+    return result
   };
 
-  const handleMarkSettlementPaid = (settlementId: string): boolean => {
+  const handleMarkSettlementPaid = async (settlementId: string): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.markSettlementPaid(settlementId);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.markSettlementPaid(settlementId)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.markSettlementPaid(settlementId)
+    refreshData()
+    return result
   };
 
-  const handleToggleSettlementPayment = (settlementId: string): boolean => {
+  const handleToggleSettlementPayment = async (settlementId: string): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.toggleSettlementPayment(settlementId);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.toggleSettlementPayment(settlementId)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.toggleSettlementPayment(settlementId)
+    refreshData()
+    return result
   };
 
-  const handleTogglePlayerPayment = (gameId: string, playerId: string): boolean => {
+  const handleTogglePlayerPayment = async (gameId: string, playerId: string): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.togglePlayerPayment(gameId, playerId);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.togglePlayerPayment(gameId, playerId)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.togglePlayerPayment(gameId, playerId)
+    refreshData()
+    return result
   };
 
-  const handleOptInToGame = (gameId: string, playerId: string, buyIn: number): boolean => {
+  const handleOptInToGame = async (gameId: string, playerId: string, buyIn: number): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.optInToGame(gameId, playerId, buyIn);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.optInToGame(gameId, playerId, buyIn)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.optInToGame(gameId, playerId, buyIn)
+    refreshData()
+    return result
   };
 
-  const handleAddRebuyToGame = (gameId: string, playerId: string, rebuyAmount: number): boolean => {
+  const handleAddRebuyToGame = async (gameId: string, playerId: string, rebuyAmount: number): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.addRebuyToGame(gameId, playerId, rebuyAmount);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.addRebuyToGame(gameId, playerId, rebuyAmount)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.addRebuyToGame(gameId, playerId, rebuyAmount)
+    refreshData()
+    return result
   };
 
-  const handleCashOutFromGame = (gameId: string, playerId: string, cashOutAmount: number): boolean => {
+  const handleCashOutFromGame = async (gameId: string, playerId: string, cashOutAmount: number): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.cashOutFromGame(gameId, playerId, cashOutAmount);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.cashOutFromGame(gameId, playerId, cashOutAmount)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.cashOutFromGame(gameId, playerId, cashOutAmount)
+    refreshData()
+    return result
   };
 
-  const handleAddMemberToGroup = (groupId: string, playerId: string): boolean => {
+  const handleAddMemberToGroup = async (groupId: string, playerId: string): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.addMemberToGroup(groupId, playerId);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.addMemberToGroup(groupId, playerId)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.addMemberToGroup(groupId, playerId)
+    refreshData()
+    return result
   };
 
-  const handleRemovePlayerFromGame = (gameId: string, playerId: string): boolean => {
+  const handleRemovePlayerFromGame = async (gameId: string, playerId: string): Promise<boolean> => {
     if (isLocalMode()) {
       const result = Local.removePlayerFromGame(gameId, playerId);
       if (result) refreshData();
       return result;
     }
 
-    void (async () => {
-      await Supa.removePlayerFromGame(gameId, playerId)
-      refreshData()
-    })()
-    return true
+    const result = await Supa.removePlayerFromGame(gameId, playerId)
+    refreshData()
+    return result
   };
 
   const getPlayerBalance = useCallback((playerId: string): PlayerBalance => {

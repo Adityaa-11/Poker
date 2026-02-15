@@ -186,6 +186,7 @@ export function GameOptInCard({
                     <Input
                       id="buyIn"
                       type="number"
+                      min={1}
                       placeholder="0"
                       value={buyInAmount}
                       onChange={(e) => setBuyInAmount(e.target.value)}
@@ -242,6 +243,7 @@ export function GameOptInCard({
                       <Input
                         id="rebuy"
                         type="number"
+                        min={1}
                         placeholder="0"
                         value={rebuyAmount}
                         onChange={(e) => setRebuyAmount(e.target.value)}
@@ -277,6 +279,7 @@ export function GameOptInCard({
                       <Input
                         id="cashOut"
                         type="number"
+                        min={0}
                         placeholder="0"
                         value={cashOutAmount}
                         onChange={(e) => setCashOutAmount(e.target.value)}

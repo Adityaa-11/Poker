@@ -24,7 +24,7 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
   const [error, setError] = useState("")
   const [remoteGroup, setRemoteGroup] = useState<{ id: string; name: string; inviteCode: string; memberCount: number } | null>(null)
   
-  const { groups, currentUser, createNewPlayer, addMemberToGroup } = usePoker()
+  const { groups, currentUser, createNewPlayer, addMemberToGroup, refreshData } = usePoker()
   const { user: authUser, loading: authLoading } = useAuth()
   const router = useRouter()
   
@@ -103,7 +103,7 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
         }
 
         const player = createNewPlayer(playerName.trim())
-        const success = addMemberToGroup(group.id, player.id)
+        const success = await addMemberToGroup(group.id, player.id)
         if (success) {
           router.push(`/groups/${group.id}`)
         } else {
@@ -130,13 +130,13 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
       const token = data.session?.access_token
       if (!token) {
         // Try to refresh the session
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
-        if (refreshError || !refreshData.session?.access_token) {
+        const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError || !refreshedSession.session?.access_token) {
           setError("Session expired. Please log in again.")
           return
         }
         // Use the refreshed token
-        const freshToken = refreshData.session.access_token
+        const freshToken = refreshedSession.session.access_token
         
         console.log('[JOIN PAGE] POST (refreshed token) to code:', inviteCode)
         const res = await fetch(`/api/join/${encodeURIComponent(inviteCode)}`, {
@@ -153,6 +153,7 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
           return
         }
 
+        await refreshData()
         router.push(`/groups/${group.id}`)
         return
       }
@@ -177,6 +178,7 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
 
       const successJson = await res.json().catch(() => ({}))
       console.log('[JOIN PAGE] POST success:', successJson)
+      await refreshData()
       router.push(`/groups/${group.id}`)
     } catch (err) {
       console.error('[JOIN PAGE] Join error:', err)

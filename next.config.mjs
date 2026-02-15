@@ -1,17 +1,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Performance optimizations
+  reactStrictMode: true,
+
+  // Remove console.log in production but keep console.error
   compiler: {
-    // Remove console.logs in production
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole:
+      process.env.NODE_ENV === 'production'
+        ? { exclude: ['error'] }
+        : false,
   },
-  
+
+  // Disable source maps in production
+  productionBrowserSourceMaps: false,
+
   // External packages for server components
   serverExternalPackages: ['@supabase/supabase-js'],
-  
+
   // Experimental features for better performance
   experimental: {
-    // Enable optimizeCss for production builds
     optimizeCss: true,
   },
 
@@ -96,7 +102,7 @@ const nextConfig = {
           },
         ],
       },
-      // API routes rate limiting headers
+      // API routes security headers
       {
         source: '/api/(.*)',
         headers: [
@@ -113,63 +119,6 @@ const nextConfig = {
     ]
   },
 
-  // Content Security Policy
-  async rewrites() {
-    return [
-      // Add CSP headers for enhanced security
-      {
-        source: '/(.*)',
-        has: [
-          {
-            type: 'header',
-            key: 'content-security-policy',
-          },
-        ],
-        destination: '/$1',
-      },
-    ]
-  },
-
-  // Bundle analyzer (uncomment to analyze bundle size)
-  // webpack: (config, { isServer }) => {
-  //   if (!isServer) {
-  //     config.resolve.fallback = {
-  //       ...config.resolve.fallback,
-  //       fs: false,
-  //     }
-  //   }
-  //   return config
-  // },
-
-  // Production optimizations
-  ...(process.env.NODE_ENV === 'production' && {
-    // Disable source maps in production
-    productionBrowserSourceMaps: false,
-
-    // Optimize bundles
-    compiler: {
-      removeConsole: {
-        exclude: ['error'],
-      },
-    },
-  }),
-
-  // Development optimizations
-  ...(process.env.NODE_ENV === 'development' && {
-    // Fast refresh
-    reactStrictMode: true,
-    
-    // Better error overlay
-    compiler: {
-      removeConsole: false,
-    },
-  }),
-
-  // Environment variables validation
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
-
   // Redirects for better SEO
   async redirects() {
     return [
@@ -180,11 +129,6 @@ const nextConfig = {
       },
     ]
   },
-
-  // Output configuration for static export if needed
-  // output: 'export',
-  // trailingSlash: true,
-  // images: { unoptimized: true },
 }
 
 export default nextConfig

@@ -22,8 +22,8 @@ export const metadata: Metadata = {
     title: 'PokerPals',
   },
   icons: {
-    icon: '/placeholder-logo.png',
-    apple: '/placeholder-logo.png',
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/apple-touch-icon.png',
   },
 }
 
@@ -51,8 +51,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="PokerPals" />
-        <link rel="apple-touch-icon" href="/placeholder-logo.png" />
-        <link rel="icon" href="/placeholder-logo.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <link rel="icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="font-sans antialiased">
         <ThemeProvider

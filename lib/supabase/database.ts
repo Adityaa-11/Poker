@@ -430,16 +430,17 @@ export async function updatePlayerInGame(
   if (updates.buyIn !== undefined) updateData.buy_in = updates.buyIn
   if (updates.cashOut !== undefined) {
     updateData.cash_out = updates.cashOut
-    // Calculate profit when updating cash out
+    // Calculate profit when updating cash out (include rebuy_amount)
     const { data: player } = await supabase
       .from('game_players')
-      .select('buy_in')
+      .select('buy_in, rebuy_amount')
       .eq('game_id', gameId)
       .eq('user_id', userId)
       .single()
     
     if (player) {
-      updateData.profit = updates.cashOut - player.buy_in
+      const totalInvested = player.buy_in + ((player as any).rebuy_amount || 0)
+      updateData.profit = updates.cashOut - totalInvested
     }
   }
 

@@ -75,7 +75,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!currentUser) {
         console.log('❌ Auth: No user profile found in database for session user:', session.user.id)
         // Prefer server-side profile creation (bypasses RLS problems).
-        const token = (session as any)?.access_token as string | undefined
+        const token =
+          typeof (session as { access_token?: string })?.access_token === 'string'
+            ? (session as { access_token: string }).access_token
+            : undefined
         const res = token
           ? await fetch('/api/users', {
               method: 'POST',

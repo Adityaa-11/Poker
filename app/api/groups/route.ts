@@ -90,7 +90,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse request body
-    const body = await request.json()
+    let body: { name?: string }
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
     const { name } = body
 
     // Validate input
@@ -108,7 +113,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase()
+    const inviteCode = crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase()
 
     // Create group with service role (bypasses RLS, but user is verified above)
     const { data: created, error: createError } = await supabaseServer

@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Plus, Share2 } from "lucide-react"
+import { Users, Plus, Share2, Check } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { CreateGroupDialog } from "@/components/create-group-dialog"
@@ -9,8 +10,22 @@ import { usePoker } from "@/contexts/poker-context"
 
 export default function GroupsPage() {
   const { groups, currentUser, getPlayerBalance } = usePoker()
-  
+  const [copiedGroupId, setCopiedGroupId] = useState<string | null>(null)
+
   const currentUserBalance = currentUser ? getPlayerBalance(currentUser.id) : null
+
+  const copyInviteLink = async (e: React.MouseEvent, group: { id: string; name: string; inviteCode: string }) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const url = `${typeof window !== "undefined" ? window.location.origin : ""}/join/${group.inviteCode}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedGroupId(group.id)
+      setTimeout(() => setCopiedGroupId(null), 2000)
+    } catch {
+      // ignore
+    }
+  }
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-8">
@@ -52,12 +67,18 @@ export default function GroupsPage() {
                         {currentUserBalance ? (currentUserBalance.netBalance > 0 ? "+" : "") + "$" + Math.abs(currentUserBalance.netBalance).toFixed(2) : "$0.00"}
                       </span>
                     </div>
-                    <Button variant="outline" size="sm" className="shrink-0" onClick={(e) => {
-                      e.preventDefault()
-                      // Handle invite logic here
-                    }}>
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Invite
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={(e) => copyInviteLink(e, group)}
+                    >
+                      {copiedGroupId === group.id ? (
+                        <Check className="h-4 w-4 mr-2 text-green-500" />
+                      ) : (
+                        <Share2 className="h-4 w-4 mr-2" />
+                      )}
+                      {copiedGroupId === group.id ? "Copied!" : "Invite"}
                     </Button>
                   </div>
                   <div className="text-xs text-muted-foreground text-right">

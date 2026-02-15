@@ -29,7 +29,17 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
   const group = getGroupById(groupId)
   
   if (!group) {
-    return <div>Group not found</div>
+    return (
+      <div className="container mx-auto py-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Group not found</h1>
+          <p className="text-muted-foreground">The group you&apos;re looking for doesn&apos;t exist or you don&apos;t have access.</p>
+          <Link href="/">
+            <Button className="mt-4">Go Home</Button>
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   const games = getGamesByGroupId(groupId)
