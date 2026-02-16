@@ -17,7 +17,7 @@ import { usePoker } from "@/contexts/poker-context"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function ProfilePage() {
-  const { user: authUser, loading } = useAuth()
+  const { user: authUser } = useAuth()
   const { groups, games, getPlayerBalance, clearAllData } = usePoker()
   
   // State for analytics
@@ -208,36 +208,8 @@ export default function ProfilePage() {
     }
   }, [filteredData, authUser, timeFilter])
 
-  // Show loading spinner while checking auth
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
-  // Show auth screen if not authenticated
   if (!authUser) {
-    return (
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-        </div>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Please log in to view your profile.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return null
   }
 
   const handleGroupToggle = (groupId: string) => {
