@@ -30,12 +30,6 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
   
   const demo = useMemo(() => isDemoMode(), [])
   
-  // Debug logging
-  useEffect(() => {
-    console.log('[JOIN PAGE] Raw invite code from URL:', rawInviteCode)
-    console.log('[JOIN PAGE] Normalized invite code:', inviteCode)
-  }, [rawInviteCode, inviteCode])
-
   // In Supabase mode, the user may not be a member yet, so it won't appear in `groups`.
   // Fetch a public view via API.
   useEffect(() => {
@@ -46,21 +40,16 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
 
     const run = async () => {
       setIsLoadingGroup(true)
-      console.log('[JOIN PAGE] Fetching group info for code:', inviteCode)
       try {
         const res = await fetch(`/api/join/${encodeURIComponent(inviteCode)}`)
-        console.log('[JOIN PAGE] GET response status:', res.status)
         if (!res.ok) {
           const errorJson = await res.json().catch(() => ({}))
-          console.error('[JOIN PAGE] GET error:', errorJson)
           setRemoteGroup(null)
           return
         }
         const json = (await res.json()) as { group?: { id: string; name: string; inviteCode: string; memberCount: number } }
-        console.log('[JOIN PAGE] GET success, group:', json.group)
         setRemoteGroup(json.group ?? null)
       } catch (err) {
-        console.error('[JOIN PAGE] GET exception:', err)
         setRemoteGroup(null)
       } finally {
         setIsLoadingGroup(false)
@@ -76,8 +65,9 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
     : remoteGroup
   
   // Check if current user is already a member
+  const demoGroup = demo ? groups.find(g => g.inviteCode.toLowerCase() === inviteCode.toLowerCase()) : null
   const isCurrentUserMember = demo
-    ? (currentUser && group ? (group as any).members.includes(currentUser.id) : false)
+    ? (currentUser && demoGroup ? demoGroup.members.includes(currentUser.id) : false)
     : (!!authUser && !!currentUser && !!group && (groups.find(g => g.id === group.id)?.members.includes(currentUser.id) ?? false))
   
   useEffect(() => {
@@ -122,7 +112,6 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
       const { data, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError) {
-        console.error('Session error:', sessionError)
         setError("Session error. Please try refreshing the page.")
         return
       }
@@ -138,7 +127,6 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
         // Use the refreshed token
         const freshToken = refreshedSession.session.access_token
         
-        console.log('[JOIN PAGE] POST (refreshed token) to code:', inviteCode)
         const res = await fetch(`/api/join/${encodeURIComponent(inviteCode)}`, {
           method: 'POST',
           headers: {
@@ -158,7 +146,6 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
         return
       }
 
-      console.log('[JOIN PAGE] POST to code:', inviteCode)
       const res = await fetch(`/api/join/${encodeURIComponent(inviteCode)}`, {
         method: 'POST',
         headers: {
@@ -166,22 +153,16 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
           authorization: `Bearer ${token}`,
         },
       })
-      
-      console.log('[JOIN PAGE] POST response status:', res.status)
 
       if (!res.ok) {
-        const json = (await res.json().catch(() => ({}))) as { error?: string; debug?: any }
-        console.error('[JOIN PAGE] POST error:', json)
+        const json = (await res.json().catch(() => ({}))) as { error?: string }
         setError(json.error || "Failed to join group")
         return
       }
 
-      const successJson = await res.json().catch(() => ({}))
-      console.log('[JOIN PAGE] POST success:', successJson)
       await refreshData()
       router.push(`/groups/${group.id}`)
     } catch (err) {
-      console.error('[JOIN PAGE] Join error:', err)
       setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsJoining(false)
@@ -297,7 +278,7 @@ export default function JoinGroupPage({ params }: { params: Promise<{ inviteCode
             Join this poker group to track games together
           </CardDescription>
           <div className="text-sm text-muted-foreground mt-2">
-            {demo ? (group as any).members.length : (group as any).memberCount} member{(demo ? (group as any).members.length : (group as any).memberCount) !== 1 ? 's' : ''}
+            {(() => { const count = demo && demoGroup ? demoGroup.members.length : remoteGroup?.memberCount ?? 0; return `${count} member${count !== 1 ? 's' : ''}` })()}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

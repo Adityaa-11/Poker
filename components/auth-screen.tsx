@@ -29,19 +29,13 @@ export function AuthScreen() {
     setError("")
     
     try {
-      console.log('🔄 Starting Google OAuth sign-in...')
       const result = await signInWithGoogle()
-      console.log('🔄 OAuth result:', result)
       
       if (!result.success) {
-        console.error('❌ OAuth failed:', result.error)
         setError(result.error || "Failed to sign in with Google")
-      } else {
-        console.log('✅ OAuth initiated successfully')
       }
       // Google OAuth will redirect, so no success handling needed here
     } catch (error) {
-      console.error('❌ OAuth exception:', error)
       setError("An unexpected error occurred")
     } finally {
       setIsLoading(false)
@@ -119,27 +113,20 @@ export function AuthScreen() {
         }
 
           // Check for demo credentials
-          console.log('🔍 Checking demo credentials for:', formData.email)
           const { DEMO_USERS } = await import('@/lib/demo-data')
-          console.log('🔍 Available demo users:', Object.values(DEMO_USERS).map(u => u.email))
           
           const demoUser = Object.values(DEMO_USERS).find(user => 
             user.email.toLowerCase() === formData.email.toLowerCase() && 
             user.password === formData.password
           )
           
-          console.log('🔍 Demo user found:', demoUser ? demoUser.name : 'None')
-          
           if (demoUser) {
-            console.log('🎮 Demo login detected for:', demoUser.name)
             const { demoLogin } = await import('@/lib/demo-data')
             const success = demoLogin(demoUser)
-            console.log('🎮 Demo login success:', success)
             if (success) {
               setSuccess(`Demo mode activated as ${demoUser.name}!`)
               // Give a moment for the event to be processed, then reload
               setTimeout(() => {
-                console.log('🎮 Reloading page...')
                 window.location.reload()
               }, 500)
               return

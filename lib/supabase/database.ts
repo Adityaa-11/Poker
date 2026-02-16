@@ -3,6 +3,7 @@ import { Database } from './types'
 import { Player, Game, Group, Settlement, GamePlayer } from '@/lib/types'
 
 type Tables = Database['public']['Tables']
+type GamePlayerRow = Tables['game_players']['Row']
 
 // User/Player operations
 export async function getCurrentUser(): Promise<Player | null> {
@@ -228,7 +229,7 @@ export async function getGames(): Promise<Game[]> {
     bankPersonId: game.bank_person_id,
     isCompleted: game.is_completed,
     date: game.date,
-    players: (game.game_players || []).map((gp: any) => ({
+    players: (game.game_players || []).map((gp: GamePlayerRow) => ({
       playerId: gp.user_id,
       buyIn: gp.buy_in,
       cashOut: gp.cash_out,
@@ -266,7 +267,7 @@ export async function getGameById(id: string): Promise<Game | null> {
     isCompleted: game.is_completed,
     date: game.date,
     createdAt: game.created_at,
-    players: (game.game_players || []).map((gp: any) => ({
+    players: (game.game_players || []).map((gp: GamePlayerRow) => ({
       playerId: gp.user_id,
       buyIn: gp.buy_in,
       cashOut: gp.cash_out,
@@ -425,7 +426,7 @@ export async function updatePlayerInGame(
   userId: string, 
   updates: { buyIn?: number; cashOut?: number }
 ): Promise<boolean> {
-  const updateData: any = {}
+  const updateData: Record<string, number | boolean | string | null> = {}
   
   if (updates.buyIn !== undefined) updateData.buy_in = updates.buyIn
   if (updates.cashOut !== undefined) {

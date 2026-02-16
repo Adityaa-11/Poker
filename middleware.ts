@@ -39,23 +39,23 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Optional: Add protected route logic here
-  // For now, we just handle session refresh
-  // The app handles auth checks in OnboardingWrapper component
+  // Protected routes: redirect unauthenticated users to home (where AuthScreen is shown)
+  const protectedPrefixes = ['/groups', '/games', '/analytics', '/ledger', '/settings']
+  const isProtectedRoute = protectedPrefixes.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix)
+  )
+
+  if (isProtectedRoute && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public folder)
-     * Feel free to modify this pattern to include more paths.
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

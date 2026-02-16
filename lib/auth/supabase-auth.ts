@@ -212,7 +212,7 @@ export async function getSession() {
 }
 
 // Listen to auth state changes
-export function onAuthStateChange(callback: (event: string, session: any) => void) {
+export function onAuthStateChange(callback: (event: string, session: { user: { id: string; email?: string; user_metadata?: Record<string, string> }; access_token: string } | null) => void) {
   return supabase.auth.onAuthStateChange(callback)
 }
 

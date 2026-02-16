@@ -43,11 +43,6 @@ export function OnboardingWrapper({ children }: OnboardingWrapperProps) {
     }
   }, [loading, user])
   
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 OnboardingWrapper: user =', user ? `${user.name} (${user.id})` : 'null', 'loading =', loading)
-  }
-  
   // Show loading screen while checking auth
   if (loading) {
     return <LoadingScreen />

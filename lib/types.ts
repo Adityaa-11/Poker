@@ -237,7 +237,7 @@ export interface GroupLeaderboard {
   coldStreak?: string
   bestMonth?: { playerId: string; month: string; profit: number }
   worstMonth?: { playerId: string; month: string; profit: number }
-  seasonStats?: { [season: string]: any }
+  seasonStats?: { [season: string]: { games: number; profit: number; winRate: number } }
   trends?: { [playerId: string]: 'up' | 'down' | 'stable' }
   predictions?: { [playerId: string]: number }
 }

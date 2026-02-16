@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ games: [] })
     }
 
-    const games = gamesRows.map((game: any) => ({
+    interface GamePlayerRow { user_id: string; buy_in: number; cash_out: number; profit: number; opted_in_at: string; rebuy_count: number; rebuy_amount: number; has_cashed_out: boolean; cashed_out_at: string | null }
+    interface GameRow { id: string; group_id: string; stakes: string; default_buy_in: number; bank_person_id: string | null; is_completed: boolean; date: string; created_at: string; updated_at: string; game_players: GamePlayerRow[] }
+
+    const games = (gamesRows as GameRow[]).map((game) => ({
       id: game.id,
       groupId: game.group_id,
       stakes: game.stakes,
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
       bankPersonId: game.bank_person_id,
       isCompleted: game.is_completed,
       date: game.date,
-      players: (game.game_players || []).map((gp: any) => ({
+      players: (game.game_players || []).map((gp) => ({
         playerId: gp.user_id,
         buyIn: gp.buy_in,
         cashOut: gp.cash_out,

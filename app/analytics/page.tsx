@@ -91,7 +91,7 @@ export default function ProfilePage() {
         biggestWin: 0,
         biggestLoss: 0,
         chartData: [] as { date: string; profit: number; cumulative: number }[],
-        heatmapData: [] as any[],
+        heatmapData: [] as HeatmapDataPoint[],
       }
     }
 
@@ -540,7 +540,20 @@ export default function ProfilePage() {
 }
 
 // Pikkit-style Heatmap Chart Component
-function HeatmapChart({ data }: { data: any[] }) {
+interface HeatmapDataPoint {
+  date: string
+  dateObj: Date
+  profit: number
+  hasGame: boolean
+  gameCount?: number
+  dayOfWeek: number
+  dayOfMonth: number
+  month: number
+  year: number
+  isOutsideRange?: boolean
+}
+
+function HeatmapChart({ data }: { data: HeatmapDataPoint[] }) {
   if (!data || data.length === 0) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -598,8 +611,8 @@ function HeatmapChart({ data }: { data: any[] }) {
   }
 
   // Create a proper calendar grid
-  const weeks: any[][] = []
-  let currentWeek: any[] = []
+  const weeks: HeatmapDataPoint[][] = []
+  let currentWeek: HeatmapDataPoint[] = []
   
   // Start from the first date and go to Sunday before it
   const firstDate = new Date(data[0].dateObj)

@@ -151,17 +151,13 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
       !!localStorage.getItem('poker_games')
 
     if (process.env.NODE_ENV === 'development' && !demo && !hasAnyData) {
-      console.log('🔄 PokerContext: Dev-only sample data initialization (empty storage)')
       Local.initializeSampleData()
-    } else if (demo) {
-      console.log('🎮 PokerContext: Demo mode detected, skipping sample data initialization')
     }
     
     refreshData();
     
     // Listen for demo data loaded event
     const handleDemoDataLoaded = () => {
-      console.log('🎮 PokerContext: Demo data loaded event received, refreshing...')
       refreshData();
     };
     

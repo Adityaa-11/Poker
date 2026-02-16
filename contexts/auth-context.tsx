@@ -36,22 +36,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const refreshUser = async (sessionOverride?: any) => {
+  const refreshUser = async (sessionOverride?: { user: { id: string; email?: string; user_metadata?: Record<string, string> }; access_token?: string }) => {
     try {
-      console.log('🔄 Auth: Refreshing user...')
-      
       // Check for demo mode first
       if (isDemoMode()) {
-        console.log('🎮 Auth: Demo mode detected, loading demo user from localStorage')
         const currentUserId = localStorage.getItem('poker_current_user')
         const { DEMO_USERS } = await import('@/lib/demo-data')
         const currentDemoUser = Object.values(DEMO_USERS).find(user => user.id === currentUserId)
         
         if (currentDemoUser) {
-          console.log('✅ Auth: Demo user loaded:', currentDemoUser.name)
           setUser(currentDemoUser)
         } else {
-          console.log('❌ Auth: Demo user ID not found, clearing demo data')
           const { clearDemoData } = await import('@/lib/demo-data')
           clearDemoData()
           setUser(null)
@@ -61,19 +56,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // First check if we have an auth session
       const session = sessionOverride ?? await withTimeout(getSession(), 5000, 'getSession')
-      console.log('🔍 Auth: Session check:', session ? `User ${session.user.id}` : 'No session')
       
       if (!session?.user) {
-        console.log('❌ Auth: No session found, setting user to null')
         setUser(null)
         return
       }
       
       const currentUser = await withTimeout(getCurrentUser(), 5000, 'getCurrentUser')
-      console.log('👤 Auth: Database user:', currentUser ? `${currentUser.name} (${currentUser.id})` : 'null')
       
       if (!currentUser) {
-        console.log('❌ Auth: No user profile found in database for session user:', session.user.id)
         // Prefer server-side profile creation (bypasses RLS problems).
         const token =
           typeof (session as { access_token?: string })?.access_token === 'string'
@@ -99,7 +90,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (res?.ok) {
           const json = (await res.json()) as { player?: Player }
           const ensured = json.player ?? null
-          console.log('🆕 Auth: Ensured user profile via API:', ensured ? ensured.id : 'failed')
           setUser(ensured)
           return
         }
@@ -111,13 +101,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email: session.user.email || '',
           name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User'
         })
-        console.log('🆕 Auth: Created new user profile (client fallback):', newUser ? newUser.id : 'failed')
         setUser(newUser)
       } else {
         setUser(currentUser)
       }
     } catch (error) {
-      console.error('❌ Auth: Error refreshing user:', error)
+      console.error('Auth: Error refreshing user:', error)
       setUser(null)
     }
   }
@@ -125,7 +114,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const handleSignOut = async () => {
     // Check if we're in demo mode
     if (isDemoMode()) {
-      console.log('🎮 Auth: Signing out of demo mode')
       const { clearDemoData } = await import('@/lib/demo-data')
       clearDemoData()
       setUser(null)
@@ -140,34 +128,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     let isMounted = true
-    console.log('🚀 Auth: AuthProvider effect started')
 
     // Check initial session
     const checkSession = async () => {
       try {
-        console.log('🔍 Auth: Checking initial session...')
-        
         // Check for demo mode first
         if (isDemoMode()) {
-          console.log('🎮 Auth: Demo mode detected on startup')
           await refreshUser()
           return
         }
         
         const session = await getSession()
-        console.log('📋 Auth: Initial session result:', session ? `User ${session.user.id}` : 'No session')
         
         if (session?.user && isMounted) {
-          console.log('✅ Auth: Session found, refreshing user...')
           await refreshUser()
-        } else {
-          console.log('❌ Auth: No session, user should see auth screen')
         }
       } catch (error) {
-        console.error('❌ Auth: Error checking session:', error)
+        console.error('Auth: Error checking session:', error)
       } finally {
         if (isMounted) {
-          console.log('✅ Auth: Setting loading to false')
           setLoading(false)
         }
       }
@@ -178,7 +157,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Fallback timeout in case something gets stuck
     const fallbackTimeout = setTimeout(() => {
       if (isMounted && loading) {
-        console.log('⏰ Auth: Timeout reached, forcing loading to false')
         setLoading(false)
       }
     }, 10000) // 10 second timeout
@@ -187,17 +165,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
       if (!isMounted) return
 
-      console.log('🔄 Auth state changed:', event, session?.user?.id)
-
       if (event === 'SIGNED_IN' && session?.user) {
-        console.log('✅ Auth: User signed in, refreshing user data...')
         // Use the provided session to avoid potential getSession() lock/hang.
         await refreshUser(session)
       } else if (event === 'SIGNED_OUT') {
-        console.log('👋 Auth: User signed out')
         setUser(null)
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('🔄 Auth: Token refreshed, refreshing user data...')
         await refreshUser(session)
       }
 

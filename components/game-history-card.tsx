@@ -8,18 +8,11 @@ import { usePoker } from "@/contexts/poker-context"
 export function GameHistoryCard() {
   const { games, currentUser, getGroupById } = usePoker()
   
-  // Debug logging
-  console.log('🎮 GameHistoryCard: games count:', games.length)
-  console.log('🎮 GameHistoryCard: currentUser:', currentUser?.id)
-  console.log('🎮 GameHistoryCard: completed games:', games.filter(g => g.isCompleted).length)
-  
   // Get recent completed games
   const recentGames = games
     .filter(game => game.isCompleted && game.players.some(p => p.playerId === currentUser?.id))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
-    
-  console.log('🎮 GameHistoryCard: recentGames count:', recentGames.length)
 
   return (
     <Card className="border-border/50 shadow-lg">
