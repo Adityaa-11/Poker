@@ -107,6 +107,7 @@ export async function getGroups(): Promise<Group[]> {
     return {
       id: group.id,
       name: group.name,
+      description: group.description || undefined,
       inviteCode: group.invite_code,
       members: members?.map(m => m.user_id) || [],
       createdAt: group.created_at,
@@ -131,6 +132,7 @@ export async function getGroupById(id: string): Promise<Group | null> {
   return {
     id: group.id,
     name: group.name,
+    description: group.description || undefined,
     inviteCode: group.invite_code,
     members: members?.map(m => m.user_id) || [],
     createdAt: group.created_at,
@@ -166,6 +168,7 @@ export async function createGroup(name: string): Promise<Group | null> {
   return {
     id: group.id,
     name: group.name,
+    description: group.description || undefined,
     inviteCode: group.invite_code,
     members: [user.id],
     createdAt: group.created_at,
@@ -200,6 +203,7 @@ export async function getGroupByInviteCode(inviteCode: string): Promise<Group | 
   return {
     id: group.id,
     name: group.name,
+    description: group.description || undefined,
     inviteCode: group.invite_code,
     members: members?.map(m => m.user_id) || [],
     createdAt: group.created_at,
@@ -243,6 +247,9 @@ export async function getGames(): Promise<Game[]> {
     })),
     createdAt: game.created_at,
     updatedAt: game.updated_at,
+    startTime: game.started_at || game.created_at,
+    endTime: game.ended_at || undefined,
+    duration: game.duration_seconds || undefined,
   }))
 }
 
@@ -280,6 +287,9 @@ export async function getGameById(id: string): Promise<Game | null> {
       cashedOutAt: gp.cashed_out_at || undefined,
     })),
     updatedAt: game.updated_at,
+    startTime: game.started_at || game.created_at,
+    endTime: game.ended_at || undefined,
+    duration: game.duration_seconds || undefined,
   }
 }
 
@@ -296,6 +306,7 @@ export async function createGame(
       stakes,
       default_buy_in: defaultBuyIn,
       bank_person_id: bankPersonId,
+      started_at: new Date().toISOString(),
     })
     .select()
     .single()
@@ -313,6 +324,7 @@ export async function createGame(
     createdAt: game.created_at,
     players: [],
     updatedAt: game.updated_at,
+    startTime: game.started_at || game.created_at,
   }
 }
 
@@ -465,9 +477,25 @@ export async function removePlayerFromGame(gameId: string, userId: string): Prom
 }
 
 export async function completeGame(gameId: string): Promise<boolean> {
+  // Fetch the game to compute duration
+  const { data: gameRow } = await supabase
+    .from('games')
+    .select('started_at')
+    .eq('id', gameId)
+    .single()
+
+  const now = new Date().toISOString()
+  const durationSeconds = gameRow?.started_at
+    ? Math.round((new Date(now).getTime() - new Date(gameRow.started_at).getTime()) / 1000)
+    : null
+
   const { error } = await supabase
     .from('games')
-    .update({ is_completed: true })
+    .update({
+      is_completed: true,
+      ended_at: now,
+      duration_seconds: durationSeconds,
+    })
     .eq('id', gameId)
 
   if (error) return false
@@ -475,6 +503,16 @@ export async function completeGame(gameId: string): Promise<boolean> {
   // Generate settlements
   await generateSettlementsForGame(gameId)
   return true
+}
+
+export async function deleteGame(gameId: string): Promise<boolean> {
+  // Delete game players first (foreign key)
+  await supabase.from('game_players').delete().eq('game_id', gameId)
+  // Delete any settlements
+  await supabase.from('settlements').delete().eq('game_id', gameId)
+  // Delete the game
+  const { error } = await supabase.from('games').delete().eq('id', gameId)
+  return !error
 }
 
 // Honor-based per-player payments (gameId + playerId)
@@ -630,4 +668,28 @@ async function generateSettlementsForGame(gameId: string): Promise<void> {
       creditors[creditors.findIndex(([id]) => id === creditorId)][1] -= settlementAmount
     }
   }
+}
+
+// Group management
+export async function leaveGroup(groupId: string, userId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+
+  return !error
+}
+
+export async function updateGroup(groupId: string, updates: { name?: string; description?: string }): Promise<boolean> {
+  const updateData: Record<string, string> = {}
+  if (updates.name !== undefined) updateData.name = updates.name
+  if (updates.description !== undefined) updateData.description = updates.description
+
+  const { error } = await supabase
+    .from('groups')
+    .update(updateData)
+    .eq('id', groupId)
+
+  return !error
 } 

@@ -2,18 +2,24 @@
 
 import React, { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, DollarSign, CheckCircle } from "lucide-react"
+import { ArrowLeft, DollarSign, CheckCircle, Trash2, Check } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { usePoker } from "@/contexts/poker-context"
 import { GameOptInManager } from "@/components/game-opt-in-manager"
 import { GameEndManager } from "@/components/game-end-manager"
+import { GameTimer } from "@/components/game-timer"
+import { supabase } from "@/lib/supabase/client"
 
 export default function GamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = React.use(params)
-  const { getGameById, getGroupById, getPlayerById, completeGame, getGameSummary, settlements } = usePoker()
+  const router = useRouter()
+  const { getGameById, getGroupById, getPlayerById, completeGame, getGameSummary, settlements, toggleSettlementPayment, refreshData } = usePoker()
   const [showEndGame, setShowEndGame] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [togglingSettlement, setTogglingSettlement] = useState<string | null>(null)
   
   const game = getGameById(gameId)
   
@@ -22,7 +28,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       <div className="container mx-auto py-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Game not found</h1>
-          <p className="text-muted-foreground">The game you're looking for doesn't exist.</p>
+          <p className="text-muted-foreground">The game you&apos;re looking for doesn&apos;t exist.</p>
           <Link href="/">
             <Button className="mt-4">Go Home</Button>
           </Link>
@@ -34,7 +40,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const group = getGroupById(game.groupId)
   const bankPerson = getPlayerById(game.bankPersonId)
   const gameSummary = getGameSummary(game.id)
-  const gameSettlements = settlements.filter(s => s.gameId === game.id && !s.isPaid)
+  const gameSettlements = settlements.filter(s => s.gameId === game.id)
 
   const handleShowEndGame = () => {
     setShowEndGame(true)
@@ -42,18 +48,58 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   const handleGameCompleted = () => {
     setShowEndGame(false)
-    // Game is now completed, component will re-render with new state
+  }
+
+  const handleDeleteGame = async () => {
+    if (!confirm("Are you sure you want to cancel this game? This cannot be undone.")) return
+    setDeleting(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) return
+
+      const res = await fetch(`/api/games/${gameId}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      if (res.ok) {
+        refreshData()
+        router.push(group ? `/groups/${group.id}` : "/")
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleToggleSettlement = async (settlementId: string) => {
+    setTogglingSettlement(settlementId)
+    try {
+      await toggleSettlementPayment(settlementId)
+    } finally {
+      setTogglingSettlement(null)
+    }
   }
 
   return (
     <div className="container mx-auto py-6 space-y-8">
-      <div className="flex items-center gap-2">
-        <Link href={group ? `/groups/${group.id}` : "/"}>
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link href={group ? `/groups/${group.id}` : "/"}>
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold">Game Details</h1>
+        </div>
+        {!game.isCompleted && (
+          <Button variant="destructive" size="sm" onClick={handleDeleteGame} disabled={deleting}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            {deleting ? "Cancelling..." : "Cancel Game"}
           </Button>
-        </Link>
-        <h1 className="text-3xl font-bold">Game Details</h1>
+        )}
       </div>
 
       <Card>
@@ -73,6 +119,14 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         </CardHeader>
         <CardContent>
           <div className="grid gap-6">
+            {/* Game Timer */}
+            <GameTimer
+              startTime={game.startTime}
+              endTime={game.endTime}
+              duration={game.duration}
+              isCompleted={game.isCompleted}
+            />
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg bg-muted/50">
                 <div className="text-sm text-muted-foreground">Game Type</div>
@@ -130,9 +184,27 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                         <div key={settlement.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            <div>{fromPlayer?.name} should pay {toPlayer?.name}</div>
+                            <div>
+                              <span className={settlement.isPaid ? "line-through text-muted-foreground" : ""}>
+                                {fromPlayer?.name} owes {toPlayer?.name}
+                              </span>
+                              {settlement.isPaid && (
+                                <Badge variant="outline" className="ml-2 bg-green-100 text-green-700 text-xs">Paid</Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="font-medium">${settlement.amount.toFixed(2)}</div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium">${settlement.amount.toFixed(2)}</span>
+                            <Button
+                              variant={settlement.isPaid ? "default" : "outline"}
+                              size="sm"
+                              disabled={togglingSettlement === settlement.id}
+                              onClick={() => handleToggleSettlement(settlement.id)}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              {settlement.isPaid ? "Paid" : "Mark Paid"}
+                            </Button>
+                          </div>
                         </div>
                       )
                     })}

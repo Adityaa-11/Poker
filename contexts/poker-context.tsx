@@ -388,6 +388,8 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
       .filter(s => s.fromPlayerId === playerId && !s.isPaid)
       .reduce((sum, s) => sum + s.amount, 0)
 
+    // Net balance = totalProfit is the accounting truth, but we also show
+    // outstanding (unpaid) amounts for UX clarity.
     return {
       playerId,
       groupId: '',

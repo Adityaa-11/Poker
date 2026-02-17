@@ -8,6 +8,7 @@ import { PWAPrompt } from '@/components/pwa-prompt'
 import { OnboardingWrapper } from '@/components/onboarding-wrapper'
 import { DevMenu } from '@/components/dev-menu'
 import { ServiceWorkerRegister } from '@/components/service-worker-register'
+import { GameNotificationChecker } from '@/components/game-notification-checker'
 import { ErrorBoundaryWrapper } from '@/components/error-boundary'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
@@ -72,6 +73,7 @@ export default function RootLayout({
                   <PWAPrompt />
                   <DevMenu />
                   <ServiceWorkerRegister />
+                  <GameNotificationChecker />
                 </OnboardingWrapper>
               </PokerProvider>
             </AuthProvider>

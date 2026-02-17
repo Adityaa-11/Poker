@@ -3,19 +3,22 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, Plus, Share2, Users, Settings } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Share2, Users, Settings, Play } from "lucide-react"
 import { GameHistoryCard } from "@/components/game-history-card"
 import { BalanceSummary } from "@/components/balance-summary"
 import { CreateGameButton } from "@/components/create-game-button"
 import { CreateGroupDialog } from "@/components/create-group-dialog"
 import { HelpGuide } from "@/components/help-guide"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { GameTimer } from "@/components/game-timer"
 import { usePoker } from "@/contexts/poker-context"
 
 export default function Dashboard() {
-  const { groups, currentUser, getPlayerBalance, clearAllData } = usePoker()
+  const { groups, games, currentUser, getPlayerBalance, getGroupById } = usePoker()
   
   const currentUserBalance = currentUser ? getPlayerBalance(currentUser.id) : null
+  const activeGames = games.filter(g => !g.isCompleted)
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-8">
@@ -36,6 +39,41 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Active Games Section */}
+      {activeGames.length > 0 && (
+        <Card className="border-green-500/20 shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Play className="h-5 w-5 text-green-500" />
+              Active Games ({activeGames.length})
+            </CardTitle>
+            <CardDescription>Games currently in progress</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {activeGames.map(game => {
+              const group = getGroupById(game.groupId)
+              return (
+                <Link key={game.id} href={`/games/${game.id}`}>
+                  <div className="flex items-center justify-between p-4 rounded-lg border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">{game.stakes} Game</h3>
+                        <Badge variant="secondary">{group?.name}</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                        <span>{game.players.length} players</span>
+                        <span>${game.defaultBuyIn} buy-in</span>
+                      </div>
+                    </div>
+                    <GameTimer startTime={game.startTime} isCompleted={false} compact />
+                  </div>
+                </Link>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 border-border/50 shadow-lg">
@@ -75,7 +113,7 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Tap to view →
+                          Tap to view
                         </div>
                       </div>
                     </CardFooter>

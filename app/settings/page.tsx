@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -20,11 +21,7 @@ import {
   HelpCircle, 
   LogOut,
   Trash2,
-  Moon,
-  Sun,
-  Smartphone,
   Globe,
-  CreditCard,
   Star,
   MessageSquare,
   Bug,
@@ -37,16 +34,25 @@ import { isDemoMode } from "@/lib/demo-data"
 import { supabase } from "@/lib/supabase/client"
 
 export default function SettingsPage() {
+  const router = useRouter()
   const { user: authUser, signOut, refreshUser } = useAuth()
   const { currentUser, clearAllData } = usePoker()
   const [activeTab, setActiveTab] = useState("profile")
   const [displayName, setDisplayName] = useState("")
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default")
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   useEffect(() => {
     setDisplayName(currentUser?.name || authUser?.name || "")
   }, [authUser?.name, currentUser?.name])
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission)
+    }
+  }, [])
 
   const handleSignOut = async () => {
     if (confirm("Are you sure you want to sign out?")) {
@@ -60,6 +66,45 @@ export default function SettingsPage() {
     }
   }
 
+  const handleDeleteAccount = async () => {
+    if (!confirm("Are you sure you want to delete your account? This will permanently remove all your data and cannot be undone.")) return
+    if (!confirm("This is your final confirmation. Your account will be permanently deleted.")) return
+
+    setDeletingAccount(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) return
+
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      if (res.ok) {
+        await signOut()
+        router.push("/")
+      } else {
+        alert("Failed to delete account. Please try again.")
+      }
+    } catch {
+      alert("Failed to delete account. Please try again.")
+    } finally {
+      setDeletingAccount(false)
+    }
+  }
+
+  const handleToggleNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return
+
+    if (Notification.permission === "granted") {
+      // Browser API does not allow revoking permission programmatically
+      return
+    }
+
+    const permission = await Notification.requestPermission()
+    setNotifPermission(permission)
+  }
 
   const handleSaveProfile = async () => {
     if (isDemoMode()) return
@@ -138,7 +183,6 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Profile Picture & Basic Info */}
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
                   <AvatarFallback className="text-lg">
@@ -153,16 +197,13 @@ export default function SettingsPage() {
                     {authUser?.email || "No email"}
                   </p>
                   {isDemoMode() && (
-                    <Badge variant="secondary" className="text-xs">
-                      🎮 Demo Account
-                    </Badge>
+                    <Badge variant="secondary" className="text-xs">Demo Account</Badge>
                   )}
                 </div>
               </div>
 
               <Separator />
 
-              {/* Edit Profile Form */}
               <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Display Name</Label>
@@ -198,7 +239,6 @@ export default function SettingsPage() {
 
               <Separator />
 
-              {/* Theme Settings */}
               <div className="space-y-4">
                 <h4 className="text-sm font-medium">Appearance</h4>
                 <div className="flex items-center justify-between">
@@ -231,53 +271,28 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>Game Invitations</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get notified when someone invites you to a game
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Payment Reminders</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Reminders for outstanding payments
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Game Updates</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Real-time updates during active games
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Weekly Summary</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Weekly summary of your poker activity
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
                     <Label>Push Notifications</Label>
                     <p className="text-sm text-muted-foreground">
-                      Enable push notifications on mobile devices
+                      {notifPermission === "granted"
+                        ? "Notifications are enabled. To disable, change your browser settings."
+                        : notifPermission === "denied"
+                          ? "Notifications are blocked. Enable them in your browser settings."
+                          : "Enable browser notifications for game updates"}
                     </p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={notifPermission === "granted"}
+                    onCheckedChange={handleToggleNotifications}
+                    disabled={notifPermission === "denied" || notifPermission === "granted"}
+                  />
                 </div>
+
+                <Separator />
+
+                <p className="text-sm text-muted-foreground">
+                  When push notifications are enabled, you&apos;ll be notified about new games in your groups.
+                  More notification options coming soon.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -297,35 +312,23 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Profile Visibility</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Allow others to see your profile and stats
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  Your game data is only visible to members of the groups you belong to. 
+                  We never sell your data to third parties.
+                </p>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Game History Visibility</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Show your game history to group members
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Analytics Tracking</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Help improve the app with anonymous usage data
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
+                <Link href="/privacy">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Privacy Policy
+                  </Button>
+                </Link>
+                <Link href="/terms">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Terms of Service
+                  </Button>
+                </Link>
               </div>
 
               <Separator />
@@ -334,12 +337,6 @@ export default function SettingsPage() {
                 <h4 className="text-sm font-medium">Account Security</h4>
                 <Button variant="outline" className="w-full" disabled={isDemoMode()}>
                   Change Password
-                </Button>
-                <Button variant="outline" className="w-full" disabled={isDemoMode()}>
-                  Enable Two-Factor Authentication
-                </Button>
-                <Button variant="outline" className="w-full" disabled={isDemoMode()}>
-                  Download Account Data
                 </Button>
               </div>
             </CardContent>
@@ -359,7 +356,6 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-
               <div className="space-y-4">
                 <h4 className="text-sm font-medium text-destructive">Danger Zone</h4>
                 <Button 
@@ -371,6 +367,24 @@ export default function SettingsPage() {
                   <Trash2 className="mr-2 h-4 w-4" />
                   {isDemoMode() ? "Demo Mode - Cannot Clear Data" : "Clear All Data"}
                 </Button>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-destructive">Delete Account</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete your account and all associated data. This action cannot be undone.
+                  </p>
+                  <Button 
+                    variant="destructive" 
+                    className="w-full justify-start"
+                    onClick={handleDeleteAccount}
+                    disabled={isDemoMode() || deletingAccount}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {deletingAccount ? "Deleting Account..." : "Delete Account"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -427,22 +441,23 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <p className="text-sm"><strong>Version:</strong> 1.0.0</p>
-                <p className="text-sm"><strong>Build:</strong> 2024.1.0</p>
-                <p className="text-sm"><strong>Last Updated:</strong> January 2024</p>
+                <p className="text-sm"><strong>Build:</strong> 2026.2.0</p>
+                <p className="text-sm"><strong>Last Updated:</strong> February 2026</p>
               </div>
 
               <Separator />
 
               <div className="space-y-2">
-                <Button variant="ghost" className="w-full justify-start p-0 h-auto">
-                  Privacy Policy
-                </Button>
-                <Button variant="ghost" className="w-full justify-start p-0 h-auto">
-                  Terms of Service
-                </Button>
-                <Button variant="ghost" className="w-full justify-start p-0 h-auto">
-                  Open Source Licenses
-                </Button>
+                <Link href="/privacy">
+                  <Button variant="ghost" className="w-full justify-start p-0 h-auto">
+                    Privacy Policy
+                  </Button>
+                </Link>
+                <Link href="/terms">
+                  <Button variant="ghost" className="w-full justify-start p-0 h-auto">
+                    Terms of Service
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>

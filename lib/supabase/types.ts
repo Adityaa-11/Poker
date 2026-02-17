@@ -41,6 +41,7 @@ export interface Database {
         Row: {
           id: string
           name: string
+          description: string | null
           invite_code: string
           created_by: string
           created_at: string
@@ -49,6 +50,7 @@ export interface Database {
         Insert: {
           id?: string
           name: string
+          description?: string | null
           invite_code: string
           created_by: string
           created_at?: string
@@ -57,6 +59,7 @@ export interface Database {
         Update: {
           id?: string
           name?: string
+          description?: string | null
           invite_code?: string
           updated_at?: string
         }
@@ -89,6 +92,9 @@ export interface Database {
           date: string
           created_at: string
           updated_at: string
+          started_at: string
+          ended_at: string | null
+          duration_seconds: number | null
         }
         Insert: {
           id?: string
@@ -100,6 +106,9 @@ export interface Database {
           date?: string
           created_at?: string
           updated_at?: string
+          started_at?: string
+          ended_at?: string | null
+          duration_seconds?: number | null
         }
         Update: {
           id?: string
@@ -108,6 +117,9 @@ export interface Database {
           bank_person_id?: string
           is_completed?: boolean
           updated_at?: string
+          started_at?: string
+          ended_at?: string | null
+          duration_seconds?: number | null
         }
       }
       game_players: {

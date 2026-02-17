@@ -1,20 +1,26 @@
 "use client"
 
 import Link from "next/link"
-import { use } from "react"
+import { use, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ArrowLeft, Users, Calendar, Copy, Share2, Check } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ArrowLeft, Users, Calendar, Play, LogOut, Pencil, X } from "lucide-react"
 import { usePoker } from "@/contexts/poker-context"
 import { InviteLinkCard } from "@/components/invite-link-card"
 import { GroupLeaderboard } from "@/components/group-leaderboard"
 import { GameOptInCard } from "@/components/game-opt-in-card"
+import { GameTimer } from "@/components/game-timer"
+import { supabase } from "@/lib/supabase/client"
 
 export default function GroupPage({ params }: { params: Promise<{ groupId: string }> }) {
   const { groupId } = use(params)
+  const router = useRouter()
   const { 
     getGroupById, 
     getGamesByGroupId, 
@@ -23,8 +29,15 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
     players,
     optInToGame,
     addRebuyToGame,
-    cashOutFromGame
+    cashOutFromGame,
+    refreshData
   } = usePoker()
+
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   
   const group = getGroupById(groupId)
   
@@ -65,20 +78,120 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
     }
   }
 
+  const handleLeaveGroup = async () => {
+    if (!confirm("Are you sure you want to leave this group? You can rejoin later with an invite link.")) return
+    setLeaving(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) return
+
+      const res = await fetch(`/api/groups/${groupId}/leave`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      })
+
+      if (res.ok) {
+        refreshData()
+        router.push("/")
+      } else {
+        const json = await res.json().catch(() => null) as { error?: string } | null
+        alert(json?.error || "Failed to leave group")
+      }
+    } catch {
+      alert("Failed to leave group")
+    } finally {
+      setLeaving(false)
+    }
+  }
+
+  const handleOpenEdit = () => {
+    setEditName(group.name)
+    setEditDescription(group.description ?? "")
+    setShowEditDialog(true)
+  }
+
+  const handleSaveEdit = async () => {
+    setSaving(true)
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
+      if (!token) return
+
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: editName, description: editDescription }),
+      })
+
+      if (res.ok) {
+        refreshData()
+        setShowEditDialog(false)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">{group.name}</h1>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleOpenEdit}>
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p className="text-muted-foreground">Created {new Date(group.createdAt).toLocaleDateString()}</p>
+          </div>
+        </div>
+        <Link href={`/games/new?groupId=${groupId}`}>
+          <Button>
+            <Play className="mr-2 h-4 w-4" />
+            Start Game
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold">{group.name}</h1>
-          <p className="text-muted-foreground">Created {new Date(group.createdAt).toLocaleDateString()}</p>
-        </div>
       </div>
+
+      {/* Edit Group Dialog */}
+      {showEditDialog && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Edit Group</CardTitle>
+              <Button variant="ghost" size="icon" onClick={() => setShowEditDialog(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="group-name">Group Name</Label>
+              <Input id="group-name" value={editName} onChange={e => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="group-desc">Description (optional)</Label>
+              <Input id="group-desc" value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Add a description..." />
+            </div>
+            <Button onClick={handleSaveEdit} disabled={saving || !editName.trim()}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
@@ -153,9 +266,12 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
                       <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                         <div>
                           <p className="font-medium">{game.stakes} Game</p>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(game.date).toLocaleDateString()} • ${game.defaultBuyIn} buy-in
-                          </p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{new Date(game.date).toLocaleDateString()} - ${game.defaultBuyIn} buy-in</span>
+                            {game.isCompleted && game.duration && (
+                              <GameTimer startTime={game.startTime} duration={game.duration} isCompleted compact />
+                            )}
+                          </div>
                         </div>
                         <Badge variant={game.isCompleted ? 'default' : 'secondary'}>
                           {game.isCompleted ? 'Completed' : 'Active'}
@@ -165,6 +281,16 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Leave Group */}
+          <Card className="border-destructive/20">
+            <CardContent className="pt-6">
+              <Button variant="destructive" className="w-full" onClick={handleLeaveGroup} disabled={leaving}>
+                <LogOut className="mr-2 h-4 w-4" />
+                {leaving ? "Leaving..." : "Leave Group"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -206,6 +332,9 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
                             <span>{game.stakes}</span>
                             <span>${game.defaultBuyIn} buy-in</span>
                             <span>{game.players.length} players</span>
+                            {game.isCompleted && game.duration && (
+                              <GameTimer startTime={game.startTime} duration={game.duration} isCompleted compact />
+                            )}
                           </div>
                         </div>
                         <Badge variant={game.isCompleted ? 'default' : 'secondary'}>

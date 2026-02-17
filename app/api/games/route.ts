@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     }
 
     interface GamePlayerRow { user_id: string; buy_in: number; cash_out: number; profit: number; opted_in_at: string; rebuy_count: number; rebuy_amount: number; has_cashed_out: boolean; cashed_out_at: string | null }
-    interface GameRow { id: string; group_id: string; stakes: string; default_buy_in: number; bank_person_id: string | null; is_completed: boolean; date: string; created_at: string; updated_at: string; game_players: GamePlayerRow[] }
+    interface GameRow { id: string; group_id: string; stakes: string; default_buy_in: number; bank_person_id: string | null; is_completed: boolean; date: string; created_at: string; updated_at: string; started_at: string | null; ended_at: string | null; duration_seconds: number | null; game_players: GamePlayerRow[] }
 
     const games = (gamesRows as GameRow[]).map((game) => ({
       id: game.id,
@@ -62,6 +62,9 @@ export async function GET(request: NextRequest) {
       })),
       createdAt: game.created_at,
       updatedAt: game.updated_at,
+      startTime: game.started_at || game.created_at,
+      endTime: game.ended_at || undefined,
+      duration: game.duration_seconds || undefined,
     }))
 
     return NextResponse.json({ games })
@@ -141,6 +144,7 @@ export async function POST(request: NextRequest) {
         stakes: String(stakes).trim(),
         default_buy_in: defaultBuyInNum,
         bank_person_id: bankPersonId,
+        started_at: new Date().toISOString(),
       })
       .select()
       .single()
@@ -163,6 +167,7 @@ export async function POST(request: NextRequest) {
       createdAt: created.created_at,
       players: [],
       updatedAt: created.updated_at,
+      startTime: created.started_at || created.created_at,
     }
     return NextResponse.json({ game }, { status: 201 })
   } catch (error) {

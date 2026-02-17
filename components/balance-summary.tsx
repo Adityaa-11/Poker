@@ -1,17 +1,29 @@
 "use client"
 
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DollarSign, Check } from "lucide-react"
 import { usePoker } from "@/contexts/poker-context"
 
 export function BalanceSummary() {
-  const { currentUser, getPlayerBalance, settlements, getPlayerById } = usePoker()
+  const { currentUser, getPlayerBalance, settlements, getPlayerById, toggleSettlementPayment } = usePoker()
+  const [togglingId, setTogglingId] = useState<string | null>(null)
   
   if (!currentUser) return null
   
   const balance = getPlayerBalance(currentUser.id)
   const owedSettlements = settlements.filter(s => s.toPlayerId === currentUser.id && !s.isPaid)
   const oweSettlements = settlements.filter(s => s.fromPlayerId === currentUser.id && !s.isPaid)
+
+  const handleToggle = async (settlementId: string) => {
+    setTogglingId(settlementId)
+    try {
+      await toggleSettlementPayment(settlementId)
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   return (
     <Card className="border-border/50 shadow-lg">
@@ -44,7 +56,19 @@ export function BalanceSummary() {
                       </span>
                       <span className="text-sm font-medium">{fromPlayer?.name} owes you</span>
                     </div>
-                    <span className="font-bold text-green-500">${settlement.amount.toFixed(2)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-green-500">${settlement.amount.toFixed(2)}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={togglingId === settlement.id}
+                        onClick={() => handleToggle(settlement.id)}
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        Received
+                      </Button>
+                    </div>
                   </div>
                 )
               })}
@@ -64,7 +88,19 @@ export function BalanceSummary() {
                       </span>
                       <span className="text-sm font-medium">You owe {toPlayer?.name}</span>
                     </div>
-                    <span className="font-bold text-red-500">${settlement.amount.toFixed(2)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-red-500">${settlement.amount.toFixed(2)}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={togglingId === settlement.id}
+                        onClick={() => handleToggle(settlement.id)}
+                      >
+                        <Check className="h-3 w-3 mr-1" />
+                        Paid
+                      </Button>
+                    </div>
                   </div>
                 )
               })}
