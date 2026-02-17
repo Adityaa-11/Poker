@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { AuthScreen } from "@/components/auth-screen"
 import { Spade, Heart, Diamond, Club } from "lucide-react"
@@ -9,7 +9,6 @@ interface OnboardingWrapperProps {
   children: ReactNode
 }
 
-// Poker-themed loading animation component
 function LoadingScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col items-center justify-center p-4">
@@ -27,37 +26,56 @@ function LoadingScreen() {
 
 export function OnboardingWrapper({ children }: OnboardingWrapperProps) {
   const { user, loading } = useAuth()
-  // Add a small grace period to avoid flashing AuthScreen while session initializes
   const [showAuth, setShowAuth] = useState(false)
-  
+
+  // Once the user has been authenticated at least once, we use this
+  // to keep showing app content during background refreshes and prevent
+  // loading screen flashes. Only reset on confirmed sign-out.
+  const wasAuthenticatedRef = useRef(false)
+
   useEffect(() => {
-    // Only show auth screen after a short delay if still no user
-    // This prevents the flash when session is being restored
-    if (!loading && !user) {
-      const timer = setTimeout(() => {
-        setShowAuth(true)
-      }, 100) // 100ms grace period
-      return () => clearTimeout(timer)
-    } else {
+    if (user) {
+      wasAuthenticatedRef.current = true
       setShowAuth(false)
+      return
+    }
+
+    // User is null and not loading -- start a grace period before showing auth.
+    // This handles both cold-start (first visit) and sign-out (subsequent).
+    if (!loading && !user) {
+      const delay = wasAuthenticatedRef.current ? 500 : 100
+      const timer = setTimeout(() => {
+        wasAuthenticatedRef.current = false
+        setShowAuth(true)
+      }, delay)
+      return () => clearTimeout(timer)
     }
   }, [loading, user])
-  
-  // Show loading screen while checking auth
+
+  // User is present -- always show app
+  if (user) {
+    return <>{children}</>
+  }
+
+  // Initial auth check or background refresh in progress
   if (loading) {
+    // If previously authenticated, keep showing app content (no flash)
+    if (wasAuthenticatedRef.current) {
+      return <>{children}</>
+    }
     return <LoadingScreen />
   }
 
-  // Show loading screen during grace period (prevents AuthScreen flash)
-  if (!user && !showAuth) {
-    return <LoadingScreen />
+  // Loading is done, user is null -- in grace period or ready to show auth
+  if (wasAuthenticatedRef.current) {
+    // Grace period after sign-out -- keep showing app briefly
+    return <>{children}</>
   }
 
-  // No user after grace period - show auth screen
-  if (!user) {
+  if (showAuth) {
     return <AuthScreen />
   }
 
-  // User authenticated - show app
-  return <>{children}</>
+  // Grace period on cold start
+  return <LoadingScreen />
 } 

@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react'
 import { onAuthStateChange, getSession } from '@/lib/auth/supabase-auth'
 import { getCurrentUser } from '@/lib/supabase/database'
 import { Player } from '@/lib/types'
@@ -23,6 +23,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<Player | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Track whether initial auth check has completed so we never re-show loading
+  const hasInitializedRef = useRef(false)
+  // Keep a ref to the current user so background refreshes can fall back to it
+  const userRef = useRef<Player | null>(null)
+
+  // Keep the ref in sync with state
+  const setUserSafe = useCallback((newUser: Player | null) => {
+    userRef.current = newUser
+    setUser(newUser)
+  }, [])
+
   const withTimeout = async <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     const timeoutPromise = new Promise<T>((_, reject) => {
@@ -36,36 +47,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const refreshUser = async (sessionOverride?: { user: { id: string; email?: string; user_metadata?: Record<string, string> }; access_token?: string }) => {
+  /**
+   * Core user fetch logic. Used by both initial auth check and background refreshes.
+   * `isBackground` controls whether transient errors should clear the user (initial)
+   * or silently keep the existing user (background).
+   */
+  const refreshUserInternal = useCallback(async (
+    sessionOverride?: { user: { id: string; email?: string; user_metadata?: Record<string, string> }; access_token?: string },
+    isBackground = false
+  ) => {
     try {
-      // Check for demo mode first
       if (isDemoMode()) {
         const currentUserId = localStorage.getItem('poker_current_user')
         const { DEMO_USERS } = await import('@/lib/demo-data')
-        const currentDemoUser = Object.values(DEMO_USERS).find(user => user.id === currentUserId)
-        
+        const currentDemoUser = Object.values(DEMO_USERS).find(u => u.id === currentUserId)
+
         if (currentDemoUser) {
-          setUser(currentDemoUser)
+          setUserSafe(currentDemoUser)
         } else {
           const { clearDemoData } = await import('@/lib/demo-data')
           clearDemoData()
-          setUser(null)
+          setUserSafe(null)
         }
         return
       }
-      
-      // First check if we have an auth session
-      const session = sessionOverride ?? await withTimeout(getSession(), 5000, 'getSession')
-      
+
+      // Use provided session or fetch one (longer timeout for background)
+      const timeoutMs = isBackground ? 15000 : 8000
+      const session = sessionOverride ?? await withTimeout(getSession(), timeoutMs, 'getSession')
+
       if (!session?.user) {
-        setUser(null)
+        // No session means truly signed out -- only clear if this is the initial check
+        // or if we don't have a user yet. For background refreshes, keep existing user.
+        if (!isBackground) {
+          setUserSafe(null)
+        }
         return
       }
-      
-      const currentUser = await withTimeout(getCurrentUser(), 5000, 'getCurrentUser')
-      
+
+      const currentUser = await withTimeout(getCurrentUser(), timeoutMs, 'getCurrentUser')
+
       if (!currentUser) {
-        // Prefer server-side profile creation (bypasses RLS problems).
         const token =
           typeof (session as { access_token?: string })?.access_token === 'string'
             ? (session as { access_token: string }).access_token
@@ -90,63 +112,71 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (res?.ok) {
           const json = (await res.json()) as { player?: Player }
           const ensured = json.player ?? null
-          setUser(ensured)
+          setUserSafe(ensured)
           return
         }
 
-        // Fallback: try to create user profile directly from session data
         const { createUser } = await import('@/lib/supabase/database')
         const newUser = await createUser({
           id: session.user.id,
           email: session.user.email || '',
           name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User'
         })
-        setUser(newUser)
+        setUserSafe(newUser)
       } else {
-        setUser(currentUser)
+        setUserSafe(currentUser)
       }
     } catch (error) {
-      console.error('Auth: Error refreshing user:', error)
-      setUser(null)
+      if (isBackground) {
+        // Background refresh failed -- keep existing user, don't log them out
+        console.warn('Auth: Background refresh failed, keeping existing session:', error)
+      } else {
+        // Initial check failed -- clear user
+        console.error('Auth: Error refreshing user:', error)
+        setUserSafe(null)
+      }
     }
-  }
+  }, [setUserSafe])
 
-  const handleSignOut = async () => {
-    // Check if we're in demo mode
+  // Public refreshUser (always foreground)
+  const refreshUser = useCallback(async () => {
+    await refreshUserInternal(undefined, false)
+  }, [refreshUserInternal])
+
+  const handleSignOut = useCallback(async () => {
     if (isDemoMode()) {
       const { clearDemoData } = await import('@/lib/demo-data')
       clearDemoData()
-      setUser(null)
+      setUserSafe(null)
       window.location.reload()
       return
     }
-    
+
     const { signOut } = await import('@/lib/auth/supabase-auth')
     await signOut()
-    setUser(null)
-  }
+    setUserSafe(null)
+  }, [setUserSafe])
 
   useEffect(() => {
     let isMounted = true
 
-    // Check initial session
     const checkSession = async () => {
       try {
-        // Check for demo mode first
         if (isDemoMode()) {
-          await refreshUser()
+          await refreshUserInternal()
           return
         }
-        
+
         const session = await getSession()
-        
+
         if (session?.user && isMounted) {
-          await refreshUser()
+          await refreshUserInternal()
         }
       } catch (error) {
         console.error('Auth: Error checking session:', error)
       } finally {
         if (isMounted) {
+          hasInitializedRef.current = true
           setLoading(false)
         }
       }
@@ -154,27 +184,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     checkSession()
 
-    // Fallback timeout in case something gets stuck
+    // Fallback timeout in case initial check gets stuck
     const fallbackTimeout = setTimeout(() => {
-      if (isMounted && loading) {
+      if (isMounted && !hasInitializedRef.current) {
+        hasInitializedRef.current = true
         setLoading(false)
       }
-    }, 10000) // 10 second timeout
+    }, 10000)
 
-    // Listen for auth state changes
     const { data: { subscription } } = onAuthStateChange(async (event, session) => {
       if (!isMounted) return
 
       if (event === 'SIGNED_IN' && session?.user) {
-        // Use the provided session to avoid potential getSession() lock/hang.
-        await refreshUser(session)
+        await refreshUserInternal(session, false)
+        // Mark initialized and stop loading after first sign-in
+        if (!hasInitializedRef.current) {
+          hasInitializedRef.current = true
+          setLoading(false)
+        }
       } else if (event === 'SIGNED_OUT') {
-        setUser(null)
+        // Explicit sign-out -- always clear the user
+        setUserSafe(null)
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        await refreshUser(session)
+        // Background token refresh -- never clear user on failure
+        await refreshUserInternal(session, true)
       }
 
-      setLoading(false)
+      // Only clear initial loading, never re-show it
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true
+        setLoading(false)
+      }
     })
 
     return () => {
@@ -182,7 +222,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearTimeout(fallbackTimeout)
       subscription.unsubscribe()
     }
-  }, [])
+  }, [refreshUserInternal, setUserSafe])
 
   const value: AuthContextType = {
     user,

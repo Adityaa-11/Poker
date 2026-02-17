@@ -30,7 +30,8 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
     optInToGame,
     addRebuyToGame,
     cashOutFromGame,
-    refreshData
+    refreshData,
+    hasInitiallyLoaded
   } = usePoker()
 
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -42,6 +43,23 @@ export default function GroupPage({ params }: { params: Promise<{ groupId: strin
   const group = getGroupById(groupId)
   
   if (!group) {
+    // Still loading initial data -- show a loading skeleton instead of "not found"
+    if (!hasInitiallyLoaded) {
+      return (
+        <div className="container mx-auto py-6">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+            <div className="h-6 w-48 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-32 rounded-lg bg-muted animate-pulse" />
+            <div className="h-24 rounded-lg bg-muted animate-pulse" />
+            <div className="h-24 rounded-lg bg-muted animate-pulse" />
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="container mx-auto py-6">
         <div className="text-center">

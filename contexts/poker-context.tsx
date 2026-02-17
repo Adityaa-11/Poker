@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from 'react';
 import { isDemoMode } from '@/lib/demo-data'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase/client'
@@ -49,6 +49,8 @@ interface PokerContextType {
   getGameById: (id: string) => Game | null;
   
   // UI state
+  isLoading: boolean;
+  hasInitiallyLoaded: boolean;
   refreshData: () => void;
   clearAllData: () => void;
 }
@@ -76,6 +78,12 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [payments, setPayments] = useState<Supa.GamePlayerPaymentRow[]>([])
 
+  // Loading state: true while fetching, becomes false when done
+  const [isLoading, setIsLoading] = useState(false)
+  // Tracks whether at least one successful load has completed
+  const hasInitiallyLoadedRef = useRef(false)
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false)
+
   const isLocalMode = useCallback(() => isDemoMode(), [])
 
   const paymentMap = useMemo(() => {
@@ -86,6 +94,8 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
 
   const refreshSupabase = useCallback(async () => {
     if (!authUser) {
+      // Auth user is null -- this means explicit sign-out (the auth context
+      // no longer sets user to null on transient errors). Clear everything.
       setCurrentUser(null)
       setPlayers([])
       setGames([])
@@ -95,35 +105,47 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
       return
     }
 
-    const { data: sessionData } = await supabase.auth.getSession()
-    const token = sessionData.session?.access_token
+    setIsLoading(true)
 
-    const loadedGroups = token
-      ? await (async () => {
-          const res = await fetch('/api/groups', {
-            headers: { authorization: `Bearer ${token}` },
-          })
-          if (!res.ok) return [] as Group[]
-          const json = (await res.json()) as { groups?: Group[] }
-          return json.groups || []
-        })()
-      : await Supa.getGroups()
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
 
-    const [loadedPlayers, loadedGroupsFromApi, loadedGames, loadedSettlements, loadedPayments] =
-      await Promise.all([
-        Supa.getPlayers(),
-        Promise.resolve(loadedGroups),
-        Supa.getGames(),
-        Supa.getSettlements(),
-        Supa.getPlayerPayments(),
-      ])
+      const loadedGroups = token
+        ? await (async () => {
+            const res = await fetch('/api/groups', {
+              headers: { authorization: `Bearer ${token}` },
+            })
+            if (!res.ok) return [] as Group[]
+            const json = (await res.json()) as { groups?: Group[] }
+            return json.groups || []
+          })()
+        : await Supa.getGroups()
 
-    setCurrentUser(authUser)
-    setPlayers(loadedPlayers)
-    setGroups(loadedGroupsFromApi)
-    setGames(loadedGames)
-    setSettlements(loadedSettlements)
-    setPayments(loadedPayments)
+      const [loadedPlayers, loadedGroupsFromApi, loadedGames, loadedSettlements, loadedPayments] =
+        await Promise.all([
+          Supa.getPlayers(),
+          Promise.resolve(loadedGroups),
+          Supa.getGames(),
+          Supa.getSettlements(),
+          Supa.getPlayerPayments(),
+        ])
+
+      setCurrentUser(authUser)
+      setPlayers(loadedPlayers)
+      setGroups(loadedGroupsFromApi)
+      setGames(loadedGames)
+      setSettlements(loadedSettlements)
+      setPayments(loadedPayments)
+
+      hasInitiallyLoadedRef.current = true
+      setHasInitiallyLoaded(true)
+    } catch (error) {
+      console.error('PokerContext: Error refreshing data:', error)
+      // Stale-while-revalidate: keep existing data visible on network error
+    } finally {
+      setIsLoading(false)
+    }
   }, [authUser])
 
   const refreshData = useCallback(() => {
@@ -134,6 +156,8 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
       setGroups(Local.getGroups())
       setSettlements(Local.getSettlements())
       setPayments([])
+      hasInitiallyLoadedRef.current = true
+      setHasInitiallyLoaded(true)
       return
     }
 
@@ -481,11 +505,22 @@ export const PokerProvider = ({ children }: PokerProviderProps) => {
     getGameById,
     
     // UI state
+    isLoading,
+    hasInitiallyLoaded,
     refreshData,
     clearAllData: () => {
       if (isLocalMode()) {
         Local.clearAllData();
         refreshData();
+      } else {
+        setCurrentUser(null)
+        setPlayers([])
+        setGames([])
+        setGroups([])
+        setSettlements([])
+        setPayments([])
+        hasInitiallyLoadedRef.current = false
+        setHasInitiallyLoaded(false)
       }
     },
   };

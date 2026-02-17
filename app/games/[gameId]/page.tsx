@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase/client"
 export default function GamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = React.use(params)
   const router = useRouter()
-  const { getGameById, getGroupById, getPlayerById, completeGame, getGameSummary, settlements, toggleSettlementPayment, refreshData } = usePoker()
+  const { getGameById, getGroupById, getPlayerById, completeGame, getGameSummary, settlements, toggleSettlementPayment, refreshData, hasInitiallyLoaded } = usePoker()
   const [showEndGame, setShowEndGame] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [togglingSettlement, setTogglingSettlement] = useState<string | null>(null)
@@ -24,6 +24,22 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const game = getGameById(gameId)
   
   if (!game) {
+    if (!hasInitiallyLoaded) {
+      return (
+        <div className="container mx-auto py-6">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-8 w-8 rounded bg-muted animate-pulse" />
+            <div className="h-6 w-48 rounded bg-muted animate-pulse" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-32 rounded-lg bg-muted animate-pulse" />
+            <div className="h-24 rounded-lg bg-muted animate-pulse" />
+            <div className="h-24 rounded-lg bg-muted animate-pulse" />
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="container mx-auto py-6">
         <div className="text-center">
